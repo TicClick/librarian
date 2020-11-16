@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import sys
 
 import yaml
 
@@ -36,11 +35,12 @@ def main():
     config_path = os.path.join(source_dir, "config/config.yaml")
     with open(config_path, "r") as fd:
         config = yaml.safe_load(fd)
-    
+
     setup_logging(
         source_dir, config["logging"],
         (logger, github.logger, discord_bot.logger, routine.logger)
     )
+    logger.info("%s Starting up %s", "-" * 10, "-" * 10)
 
     github_api = github.GitHub(
         token=config["github"]["token"],

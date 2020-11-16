@@ -1,6 +1,3 @@
-import itertools as it
-import os
-import sqlite3
 import contextlib
 
 import arrow
@@ -64,10 +61,10 @@ class Pull(Base):
             extracted[key] = result
 
         super().__init__(**extracted)
-    
+
     def __init__(self, payload):
         self.update(dict(payload))
-    
+
     def url_for(self, repo):
         return f"https://github.com/{repo}/pull/{self.number}"
 
@@ -100,7 +97,7 @@ class Storage:
         self.engine = self.create_engine(f"sqlite:///{dbpath}")
         self.make_session = self.init_session_maker()
         self.create_all_tables()
-        
+
         self.pulls = PullHelper(self)
         self.metadata = MetadataHelper(self)
         self.discord_messages = DiscordMessageHelper(self)
@@ -110,7 +107,9 @@ class Storage:
         return sql.create_engine(path, echo=False, convert_unicode=True)
 
     def init_session_maker(self) -> type(orm.Session):
-        return orm.scoped_session(orm.sessionmaker(bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False))
+        return orm.scoped_session(orm.sessionmaker(
+            bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False
+        ))
 
     def create_all_tables(self):
         Base.metadata.create_all(self.engine)
@@ -121,7 +120,7 @@ class Storage:
         try:
             yield session
             session.commit()
-        except:
+        except (Exception, BaseException):
             session.rollback()
             raise
         finally:
@@ -159,14 +158,14 @@ class PullHelper(Helper):
     def remove(self, pull_number):
         with self.session_scope() as s:
             s.query(Pull).filter(Pull.number == pull_number).delete()
-        
+
     def count_merged(self, start_date, end_date):
         with self.session_scope() as s:
             return s.query(Pull).filter(
                 Pull.merged == 1,
                 Pull.merged_at.between(start_date, end_date)
             ).all()
-    
+
     def active_pulls(self, s):
         return s.query(Pull).filter(Pull.state != "closed").all()
 
@@ -179,7 +178,7 @@ class MetadataHelper(Helper):
                 result = Metadata(data=dict())
                 s.add(result)
             return result.data
-    
+
     def save(self, metadata):
         with self.session_scope() as s:
             result = s.query(Metadata).filter().first()
@@ -200,7 +199,7 @@ class DiscordMessageHelper(Helper):
         with self.session_scope() as s:
             for m in messages:
                 s.add(m)
-    
+
     def by_pull_numbers(self, *pull_numbers):
         with self.session_scope() as s:
             return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()

@@ -1,14 +1,13 @@
 import asyncio
 import concurrent.futures as futures
-import datetime as dt
 import logging
 import random
 
 import arrow
 import discord
 
-from librarian import github
 from librarian import routine
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ class Client(discord.Client):
     def start_routines(self):
         logger.debug("Starting routines: %s", ", ".join(r.name for r in self.routines))
         return [r.loop() for r in self.routines]
-    
+
     async def shutdown(self):
         logger.info("Shutting down the bot")
         for r in self.routines:
@@ -96,7 +95,7 @@ class Client(discord.Client):
         ):
             logger.debug("Message %s ignored", message.id)
             return
-        
+
         tokens = message.content.split()
         command, args = tokens[0], tokens[1:]
         if command not in self.handlers:
@@ -122,7 +121,7 @@ class Client(discord.Client):
 
         else:
             start_date = end_date.replace(day=1)  # current/last month's first day
-        
+
         if start_date is None:
             return await message.channel.send(
                 "usage:\n"
@@ -151,7 +150,7 @@ class Client(discord.Client):
                 author=pull.user_login,
                 merged_at=pull.merged_at.date(),
             )
-        
+
         embed = discord.Embed(
             description="\n".join((
                 "- {}".format(pull_repr(pull))
@@ -174,7 +173,6 @@ class Client(discord.Client):
                 name=r.name,
                 strike="" if r.active else "~~",
                 status_string=status_string if status_string else "{}",
-                intermediate="" if r.active else "``",
             )
 
         embed = discord.Embed(
@@ -199,13 +197,17 @@ class Client(discord.Client):
             color=COLORS.get(pull.real_state, "closed"),
         )
         embed.set_footer(
-            text="{state} | {comments} review comment{comments_suffix} | {changed_files} file{changed_files_suffix} affected".format(
-                state=pull.real_state.upper(),
-                comments=pull.review_comments,
-                comments_suffix="" if pull.review_comments == 1 else "s",
-                changed_files=pull.changed_files,
-                changed_files_suffix="" if pull.changed_files == 1 else "s",
-            ),
+            text="|".join((
+                pull.real_state.upper(),
+                "{comments} review comment{comments_suffix}".format(
+                    comments=pull.review_comments,
+                    comments_suffix="" if pull.review_comments == 1 else "s"
+                ),
+                "{changed_files} file{changed_files_suffix} affected".format(
+                    changed_files=pull.changed_files,
+                    changed_files_suffix="" if pull.changed_files == 1 else "s"
+                )
+            )),
             icon_url="https://github.githubassets.com/favicons/favicon.png"
         )
 

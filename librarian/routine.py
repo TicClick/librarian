@@ -1,17 +1,15 @@
 import abc
 import asyncio
-import concurrent.futures as futures
 import itertools as it
 import logging
 import re
 import time
-import traceback
 
 import arrow
 import aiohttp.client_exceptions
 
-from librarian import github
 from librarian import storage
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +18,7 @@ class Routine(metaclass=abc.ABCMeta):
     @abc.abstractproperty
     def interval(self):
         return 60
-    
+
     @property
     def name(self):
         return self.__class__.__name__
@@ -62,8 +60,7 @@ class Routine(metaclass=abc.ABCMeta):
                     self.name, spent, sleep_for
                 )
 
-
-        except Exception as exc:
+        except (Exception, BaseException):
             logger.exception("%s: forcibly stopped:", self.name)
 
         finally:
@@ -108,7 +105,7 @@ class FetchGithubPulls(Routine):
             elif await self.github.get_single_issue(self.last_pull) is not None:
                 logger.info("%s: found issue #%s instead of a pull", self.name, self.last_pull)
                 self.last_pull += 1
-            
+
             else:
                 logger.info("%s: no unknown pulls? setting interval to %d", self.name, self.slow_interval)
                 self.interval = self.slow_interval
@@ -118,7 +115,7 @@ class FetchGithubPulls(Routine):
 
     async def shutdown(self):
         self.storage.metadata.save_field(self.last_pull_field, self.last_pull)
-    
+
     async def status(self):
         return dict(
             last_pull=self.last_pull,
@@ -157,7 +154,10 @@ class MonitorGithubPulls(Routine):
         await self.update_messages(pulls, messages)
 
     async def update_messages(self, pulls, messages):
-        logger.info("%s: updating Discord messages for %d pulls: %s", self.name, len(pulls), sorted(_["number"] for _ in pulls))
+        logger.info(
+            "%s: updating Discord messages for %d pulls: %s",
+            self.name, len(pulls), sorted(_["number"] for _ in pulls)
+        )
         new_messages = []
         for pull in pulls:
             message = messages.get(pull["number"])
@@ -200,7 +200,7 @@ class MonitorGithubPulls(Routine):
                 )
                 tasks.append(asyncio.create_task(future))
             results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         for pull, result in zip(pulls, results):
             if isinstance(result, Exception):
                 logger.error("%s: failed to set assignee for #%s: %s", self.name, pull["number"], result)
@@ -281,24 +281,9 @@ class MonitorGithubPulls(Routine):
                     yield result
 
         await self.act_on_pulls(list(worth_updating()))
-    
+
     async def status(self):
         return {}
-    
-    async def shutdown(self):
-        pass
-
-
-class DummyRoutine(Routine):
-    interval = 2
-
-    async def run(self):
-        pass
 
     async def shutdown(self):
         pass
-
-    async def status(self):
-        return dict(
-            state="idling",
-        )

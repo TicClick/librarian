@@ -1,12 +1,10 @@
-import datetime as dt
 import http
 import itertools as it
 import logging
-import os
-import re
 
 import aiohttp
 import arrow
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +16,12 @@ class RateLimit:
         self.reset = arrow.Arrow.utcnow()
         if headers is not None:
             self.update(headers)
-    
+
     def update(self, headers):
         self.limit = headers["X-Ratelimit-Limit"]
         self.left = headers["X-Ratelimit-Remaining"]
         self.reset = arrow.get(int(headers["X-Ratelimit-Reset"]))
-    
+
     def __repr__(self):
         return "{}/{} until {}".format(self.left, self.limit, self.reset.format())
 
@@ -66,7 +64,7 @@ class GitHub(object):
 
     async def fetch(self, path, query=None, session=None):
         return await self.call_method(path=path, query=query, session=session, method="get")
-    
+
     async def patch(self, path, query=None, data=None, session=None):
         return await self.call_method(path=path, query=query, data=data, session=session, method="patch")
 
