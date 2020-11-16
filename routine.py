@@ -83,8 +83,8 @@ class Routine(metaclass=abc.ABCMeta):
 
 
 class FetchGithubPulls(Routine):
-    interval = 15
-    slow_interval = 180
+    interval = 5
+    slow_interval = 60
     last_pull_field = "last_pull"
 
     def __init__(self, discord):
@@ -113,8 +113,8 @@ class FetchGithubPulls(Routine):
                 logger.info("%s: no unknown pulls? setting interval to %d", self.name, self.slow_interval)
                 self.interval = self.slow_interval
 
-        except aiohttp.client_exceptions.ServerDisconnectedError as exc:
-            logger.error("%s: server closed the connection: %s", self.name, exc)
+        except aiohttp.client_exceptions.ClientError as exc:
+            logger.error("%s: failed to fetch pull #%s: %s", self.name, self.last_pull, exc)
 
     async def shutdown(self):
         self.storage.metadata.save_field(self.last_pull_field, self.last_pull)
@@ -206,7 +206,12 @@ class MonitorGithubPulls(Routine):
                 logger.error("%s: failed to set assignee for #%s: %s", self.name, pull["number"], result)
 
     async def run(self):
-        pulls = await self.github.pulls()
+        try:
+            pulls = await self.github.pulls()
+        except aiohttp.client_exceptions.ClientError as exc:
+            logger.error("%s: failed to fetch open pulls: %s", self.name, exc)
+            return
+
         logger.info(
             "%s: fetched %d pulls: %s",
             self.name, len(pulls), sorted(_["number"] for _ in pulls)
@@ -228,8 +233,6 @@ class MonitorGithubPulls(Routine):
                     continue
                 if arrow.get(p["updated_at"]) > arrow.get(cached_active_pulls[p["number"]].updated_at):
                     yield p
-                else:
-                    print("skipped pr {}".format(p["number"]))
 
         open_pulls_numbers = {_["number"] for _ in open_pulls()}
 

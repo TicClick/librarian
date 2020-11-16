@@ -59,8 +59,6 @@ class GitHub(object):
         async with session_method(url, params=query, data=data) as result:
             try:
                 if result.status >= http.HTTPStatus.BAD_REQUEST:
-                    if result.status != http.HTTPStatus.NOT_FOUND:
-                        print(await result.json())
                     result.raise_for_status()
                 return await result.json()
             finally:
