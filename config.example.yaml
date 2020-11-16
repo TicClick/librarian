@@ -1,0 +1,18 @@
+github:
+  token: "abcdefgh"
+  assignee_login: "TicClick"
+  repo: "someone/osu-wiki"
+
+discord:
+  token: "abc.def.ghi"
+  owner_id: 12345
+  review_channel: 67890
+  review_role_id: 12345
+
+storage:
+  path: "osuwiki.db"
+
+debug: False
+
+logging:
+  file: "librarian.log"
