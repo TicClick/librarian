@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures as futures
 import logging
 import random
 
@@ -11,7 +10,6 @@ from librarian import routine
 
 logger = logging.getLogger(__name__)
 
-THREADPOOL_CAPACITY = 5
 KILL_TIMEOUT = 10
 
 GREETINGS = [
@@ -45,19 +43,20 @@ COLORS = {
 
 
 class Client(discord.Client):
-    def __init__(self, *args, **kwargs):
-        self.github = kwargs.pop("github")
-        assignee_login = kwargs.pop("assignee_login")
+    def __init__(
+        self, *args, github=None, storage=None,
+        assignee_login=None, owner_id=None, review_channel=None, review_role_id=None,
+        **kwargs
+    ):
+        self.github = github
+        self.storage = storage
 
-        self.storage = kwargs.pop("storage")
-
-        self.owner_id = kwargs.pop("owner_id")
-        self.review_channel = kwargs.pop("review_channel")
-        self.review_role_id = kwargs.pop("review_role_id")
+        self.owner_id = owner_id
+        self.review_channel = review_channel
+        self.review_role_id = review_role_id
 
         super().__init__(*args, **kwargs)
 
-        self.threadpool = futures.ThreadPoolExecutor(max_workers=THREADPOOL_CAPACITY)
         self.routines = [
             routine.FetchGithubPulls(self),
             routine.MonitorGithubPulls(self, assignee_login),

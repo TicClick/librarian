@@ -61,9 +61,14 @@ def main():
     )
 
     async def start():
-        workers = tuple(bot.start_routines())
-        main_unit = bot.start(config["discord"]["token"])
-        await asyncio.wait(workers + (main_unit,))
+        tasks = list(map(
+            asyncio.create_task,
+            bot.start_routines()
+        ))
+        tasks.append(asyncio.create_task(
+            bot.start(config["discord"]["token"])
+        ))
+        await asyncio.gather(*tasks)
 
     try:
         logger.debug("Bot started")
