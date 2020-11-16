@@ -5,42 +5,41 @@ import sys
 
 import yaml
 
-sys.path.append(os.path.dirname(__file__))
-
-from wikiprs import github
-from wikiprs import librarian
-from wikiprs import routine
-from wikiprs import storage
+from librarian import github
+from librarian import discord_bot
+from librarian import routine
+from librarian import storage
 
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(filename, loggers):
+def setup_logging(source_dir, logging_config, loggers):
     formatter = logging.Formatter((
         "%(asctime)s\t"
         "%(module)s:%(lineno)d\t"
         "%(levelname)s\t"
         "%(message)s"
     ))
-    file_handler = logging.FileHandler(filename, "a")
+    file_name = os.path.join(source_dir, logging_config["file"])
+    file_handler = logging.FileHandler(file_name, "a")
     file_handler.setFormatter(formatter)
 
     for logger in loggers:
         logger.handlers = []
         logger.addHandler(file_handler)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(getattr(logging, logging_config["level"]))
 
 
 def main():
-    source_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(source_dir, "config.yaml")
+    source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
+    config_path = os.path.join(source_dir, "config/config.yaml")
     with open(config_path, "r") as fd:
         config = yaml.safe_load(fd)
     
     setup_logging(
-        os.path.join(source_dir, config["logging"]["file"]),
-        (logger, github.logger, librarian.logger, routine.logger)
+        source_dir, config["logging"],
+        (logger, github.logger, discord_bot.logger, routine.logger)
     )
 
     github_api = github.GitHub(
@@ -51,7 +50,7 @@ def main():
     storage_path = os.path.join(source_dir, config["storage"]["path"])
     db = storage.Storage(storage_path)
 
-    client_class = librarian.DummyClient if config["debug"] else librarian.Client
+    client_class = discord_bot.DummyClient if config["debug"] else discord_bot.Client
     bot = client_class(
         github=github_api,
         storage=db,

@@ -1,3 +1,5 @@
+# copy this to config.yaml and override anything you need
+
 github:
   token: "abcdefgh"
   assignee_login: "TicClick"
@@ -10,9 +12,10 @@ discord:
   review_role_id: 12345
 
 storage:
-  path: "osuwiki.db"
+  path: "runtime/osuwiki.db"
 
 debug: False
 
 logging:
-  file: "librarian.log"
+  file: "runtime/librarian.log"
+  level: DEBUG

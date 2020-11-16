@@ -10,8 +10,8 @@ import traceback
 import arrow
 import aiohttp.client_exceptions
 
-from wikiprs import github
-from wikiprs import storage
+from librarian import github
+from librarian import storage
 
 logger = logging.getLogger(__name__)
 

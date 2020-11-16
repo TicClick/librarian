@@ -7,8 +7,8 @@ import random
 import arrow
 import discord
 
-from wikiprs import github
-from wikiprs import routine
+from librarian import github
+from librarian import routine
 
 logger = logging.getLogger(__name__)
 
