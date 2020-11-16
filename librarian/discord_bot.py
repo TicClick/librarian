@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import textwrap
 
 import arrow
 import discord
@@ -11,6 +12,7 @@ from librarian import routine
 logger = logging.getLogger(__name__)
 
 KILL_TIMEOUT = 10
+COMMAND_PREFIX = "."
 
 GREETINGS = [
     "a new wiki article is just a click away:",
@@ -63,8 +65,9 @@ class Client(discord.Client):
         ]
 
         self.handlers = {
-            "/count": self.count_pulls,
-            "/status": self.report_status,
+            ".count": self.count_pulls,
+            ".status": self.report_status,
+            ".disk": self.show_disk_status,
         }
 
         logger.debug("Handlers: %s", ", ".join(self.handlers.keys()))
@@ -90,7 +93,7 @@ class Client(discord.Client):
         if (
             message.author == self.user or
             (self.owner_id is not None and message.author.id != self.owner_id) or
-            not message.content.startswith("/")
+            not message.content.startswith(COMMAND_PREFIX)
         ):
             logger.debug("Message #%s ignored", message.id)
             return
@@ -124,9 +127,9 @@ class Client(discord.Client):
         if start_date is None:
             return await message.channel.send(
                 "usage:\n"
-                "- `/count`: PRs merged in current month;\n"
-                "- `/count lastmonth`: PRs merged in the last month"
-                "- `/count 2020-08-30 2020-09-30`: PRs merged during [`2020-08-30`, `2020-09-30`]"
+                "- `.count`: PRs merged in current month;\n"
+                "- `.count lastmonth`: PRs merged in the last month"
+                "- `.count 2020-08-30 2020-09-30`: PRs merged during [`2020-08-30`, `2020-09-30`]"
             )
 
         query_end_date = end_date.shift(days=1)
@@ -229,6 +232,44 @@ class Client(discord.Client):
                 logger.debug("Updating existing message #%s", message_id)
                 await message.edit(embed=embed)
                 return message.channel.id, message.id
+
+    async def run_command(self, command):
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+            )
+            out, err = await proc.communicate()
+            logger.info("%r succeeded, stdout/stderr follow:", command)
+            logger.info(out)
+
+        except (Exception, BaseException):
+            logger.exception("Failed to run %r", command)
+            return None
+
+        content = textwrap.dedent(
+            """
+            ```
+            librarian@librarian:~$ {command}
+            {output}
+            ```
+            """
+        ).format(
+            command=" ".join(command),
+            output=out.decode("utf-8")
+        )
+        return content
+
+    async def run_and_reply(self, message: discord.Message, command):
+        command = list(map(str, command))
+        logger.info("Running %r on behalf of %s #%s", command, message.author, message.author.id)
+        content = await self.run_command(command)
+        if content is None:
+            content = "Failed to execute `{}` (logged the error, though)".format(" ".join(command))
+        await message.channel.send(content=content)
+
+    async def show_disk_status(self, message: discord.Message, args):
+        await self.run_and_reply(message, ["/bin/df", "-Ph", "/"])
 
 
 class DummyClient(Client):
