@@ -56,7 +56,7 @@ class Routine(metaclass=abc.ABCMeta):
                 spent = time.time() - now
                 sleep_for = max(0, self.interval - spent)
                 logger.info(
-                    "%s: tick ended; spent %ss, will sleep for %ss",
+                    "%s: tick ended; spent %.2fs, will sleep for %.2fs",
                     self.name, spent, sleep_for
                 )
 
@@ -138,6 +138,9 @@ class MonitorGithubPulls(Routine):
 
         def filter_pulls():
             for pull in pulls:
+                if self.assignee_login == pull["user"]["login"]:
+                    continue
+
                 if self.assignee_login not in [
                     assignee["login"]
                     for assignee in pull["assignees"]

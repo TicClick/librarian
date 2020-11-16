@@ -92,7 +92,7 @@ class Client(discord.Client):
             (self.owner_id is not None and message.author.id != self.owner_id) or
             not message.content.startswith("/")
         ):
-            logger.debug("Message %s ignored", message.id)
+            logger.debug("Message #%s ignored", message.id)
             return
 
         tokens = message.content.split()
