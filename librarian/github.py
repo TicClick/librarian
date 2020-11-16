@@ -18,12 +18,14 @@ class RateLimit:
             self.update(headers)
 
     def update(self, headers):
-        self.limit = headers["X-Ratelimit-Limit"]
-        self.left = headers["X-Ratelimit-Remaining"]
-        self.reset = arrow.get(int(headers["X-Ratelimit-Reset"]))
+        self.limit = headers.get("X-Ratelimit-Limit")
+        self.left = headers.get("X-Ratelimit-Remaining")
+        timestamp = headers.get("X-Ratelimit-Reset")
+        self.reset = arrow.get(int(timestamp)) if timestamp is not None else None
 
     def __repr__(self):
-        return "{}/{} until {}".format(self.left, self.limit, self.reset.format())
+        reset_ts = self.reset.format() if self.reset is not None else None
+        return "{}/{} until {}".format(self.left, self.limit, reset_ts)
 
 
 class GitHub(object):

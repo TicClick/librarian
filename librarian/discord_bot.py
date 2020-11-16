@@ -163,27 +163,28 @@ class Client(discord.Client):
         return await message.channel.send(content=msg, embed=embed)
 
     async def report_status(self, message: discord.Message, args):
-        content = "my coroutines:"
-
         async def routine_repr(r):
             status = await r.status()
             status_string = ", ".join(
                 "{}={}".format(k, v)
                 for k, v in sorted(status.items())
             )
-            return "{strike}`{name}`{strike}: `{status_string}`".format(
+            return "[{status}] {name}: {status_string}".format(
+                status=" OK " if r.active else "DEAD",
                 name=r.name,
-                strike="" if r.active else "~~",
-                status_string=status_string if status_string else "{}",
+                status_string=status_string if status_string else "{}"
             )
 
-        embed = discord.Embed(
-            description="\n".join([
-                "- {}".format(await routine_repr(r))
-                for r in self.routines
-            ])
-        )
-        return await message.channel.send(content=content, embed=embed)
+        statuses = await asyncio.gather(*map(routine_repr, self.routines))
+        content = textwrap.dedent(
+            """
+            my coroutines:
+            ```
+            {status}
+            ```
+            """
+        ).format(status="\n".join(statuses))
+        return await message.channel.send(content=content)
 
     async def post_update(self, pull=None, channel_id=None, message_id=None):
         logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)

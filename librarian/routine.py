@@ -119,9 +119,9 @@ class FetchGithubPulls(Routine):
     async def status(self):
         return dict(
             last_pull=self.last_pull,
-            req_left=self.github.ratelimit.left,
-            req_limit=self.github.ratelimit.limit,
-            req_reset=self.github.ratelimit.reset.format(),
+            requests_left=self.github.ratelimit.left,
+            requests_limit=self.github.ratelimit.limit,
+            requests_reset=self.github.ratelimit.reset.format(),
         )
 
 
