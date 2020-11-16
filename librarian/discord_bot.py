@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import re
 import textwrap
 
 import arrow
@@ -44,10 +45,23 @@ COLORS = {
 }
 
 
+def codewrap(obj):
+    def inner():
+        yield "```"
+        if isinstance(obj, (str, bytes)):
+            yield obj
+        elif hasattr(obj, "__iter__"):
+            for elem in obj:
+                yield str(elem)
+        yield "```"
+
+    return "\n".join(inner())
+
+
 class Client(discord.Client):
     def __init__(
-        self, *args, github=None, storage=None,
-        assignee_login=None, owner_id=None, review_channel=None, review_role_id=None,
+        self, *args, github=None, storage=None, assignee_login=None, title_regex=None,
+        owner_id=None, review_channel=None, review_role_id=None,
         **kwargs
     ):
         self.github = github
@@ -56,18 +70,20 @@ class Client(discord.Client):
         self.owner_id = owner_id
         self.review_channel = review_channel
         self.review_role_id = review_role_id
+        self.title_regex = re.compile(title_regex)
 
         super().__init__(*args, **kwargs)
 
         self.routines = [
             routine.FetchGithubPulls(self),
-            routine.MonitorGithubPulls(self, assignee_login),
+            routine.MonitorGithubPulls(self, assignee_login, self.title_regex),
         ]
 
         self.handlers = {
             ".count": self.count_pulls,
             ".status": self.report_status,
             ".disk": self.show_disk_status,
+            ".help": self.print_help,
         }
 
         logger.debug("Handlers: %s", ", ".join(self.handlers.keys()))
@@ -107,12 +123,27 @@ class Client(discord.Client):
             await self.handlers[command](message, args)
 
     async def count_pulls(self, message: discord.Message, args):
+        """
+        pull requests merged within a time span
+
+        .count: within the current month
+        .count <month>: use lastmonth, or date like 2020-09
+        .count <from> <to>: use two dates, for example, 2020-08-30 and 2020-09-30
+        """
+
         start_date = None
         end_date = arrow.Arrow.utcnow()
         if args:
-            if len(args) == 1 and args[0] == "lastmonth":
-                end_date = end_date.shift(days=-end_date.day)  # last month's last day
-                start_date = end_date.replace(day=1)  # current/last month's first day
+            if len(args) == 1:
+                if args[0] == "lastmonth":
+                    end_date = end_date.shift(days=-end_date.day)  # last month's last day
+                    start_date = end_date.replace(day=1)  # current/last month's first day
+                else:
+                    try:
+                        start_date = arrow.get(args[0])
+                        end_date = start_date.shift(months=1, days=-1)
+                    except ValueError:
+                        pass
             else:
                 if len(args) == 2:
                     try:
@@ -125,18 +156,21 @@ class Client(discord.Client):
             start_date = end_date.replace(day=1)  # current/last month's first day
 
         if start_date is None:
-            return await message.channel.send(
-                "usage:\n"
-                "- `.count`: PRs merged in current month;\n"
-                "- `.count lastmonth`: PRs merged in the last month"
-                "- `.count 2020-08-30 2020-09-30`: PRs merged during [`2020-08-30`, `2020-09-30`]"
-            )
+            return await self.print_help(message, ".count")
 
         query_end_date = end_date.shift(days=1)
         pulls = self.storage.pulls.count_merged(start_date=start_date.date(), end_date=query_end_date.date())
-        logger.debug("Pulls in [%s, %s): %s", start_date, query_end_date, " ".join(_.number for _ in pulls))
+        print(len(pulls))
+        pulls = sorted(
+            filter(lambda p: self.title_regex.match(p.title), pulls),
+            key=lambda p: p.number
+        )
+        logger.debug(
+            "Pulls in [%s, %s): %s",
+            start_date, query_end_date, " ".join(str(_.number) for _ in pulls)
+        )
 
-        msg = "{count} pulls merged during [`{start_date}`, `{end_date}`]".format(
+        msg = "{count} pulls merged during [{start_date}, {end_date}]".format(
             count=len(pulls),
             start_date=start_date.date(),
             end_date=end_date.date()
@@ -163,6 +197,10 @@ class Client(discord.Client):
         return await message.channel.send(content=msg, embed=embed)
 
     async def report_status(self, message: discord.Message, args):
+        """
+        system information. probably only interesting to the bot owner
+        """
+
         async def routine_repr(r):
             status = await r.status()
             status_string = ", ".join(
@@ -176,15 +214,7 @@ class Client(discord.Client):
             )
 
         statuses = await asyncio.gather(*map(routine_repr, self.routines))
-        content = textwrap.dedent(
-            """
-            my coroutines:
-            ```
-            {status}
-            ```
-            """
-        ).format(status="\n".join(statuses))
-        return await message.channel.send(content=content)
+        return await message.channel.send(content=codewrap(statuses))
 
     async def post_update(self, pull=None, channel_id=None, message_id=None):
         logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)
@@ -248,18 +278,10 @@ class Client(discord.Client):
             logger.exception("Failed to run %r", command)
             return None
 
-        content = textwrap.dedent(
-            """
-            ```
-            librarian@librarian:~$ {command}
-            {output}
-            ```
-            """
-        ).format(
-            command=" ".join(command),
-            output=out.decode("utf-8")
-        )
-        return content
+        return codewrap((
+            "librarian@librarian:~$ {}".format(" ".join(command)),
+            out.decode("utf-8")
+        ))
 
     async def run_and_reply(self, message: discord.Message, command):
         command = list(map(str, command))
@@ -270,7 +292,44 @@ class Client(discord.Client):
         await message.channel.send(content=content)
 
     async def show_disk_status(self, message: discord.Message, args):
+        """
+        amount of space consumed/free on a machine that hosts Librarian
+        """
+
         await self.run_and_reply(message, ["/bin/df", "-Ph", "/"])
+
+    async def print_help(self, message: discord.Message, args):
+        """
+        bot usage instructions
+
+        .help: list commands and their synopsis
+        .help <command>: specific info about <command>
+        """
+
+        reply = None
+        command = None
+        if isinstance(args, str):
+            command = args
+        elif args:
+            command = args[0]
+        else:
+            command = None
+
+        if command is None:
+            reply = codewrap((
+                "{}: {}".format(command, func.__doc__.strip().splitlines()[0])
+                for command, func in sorted(self.handlers.items())
+            ))
+        else:
+            if not command.startswith(COMMAND_PREFIX):
+                command = COMMAND_PREFIX + command
+
+            if command not in self.handlers:
+                reply = "unknown command `.{}` -- try plain `.help` instead".format(command)
+            else:
+                reply = codewrap(textwrap.dedent(self.handlers[command].__doc__))
+
+        await message.channel.send(content=reply)
 
 
 class DummyClient(Client):

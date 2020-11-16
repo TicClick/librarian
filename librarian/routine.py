@@ -127,11 +127,11 @@ class FetchGithubPulls(Routine):
 
 class MonitorGithubPulls(Routine):
     interval = 60
-    title_regex = re.compile(r"^\[(\w+.?)?RU(.+)?\]")
 
-    def __init__(self, discord, assignee_login):
+    def __init__(self, discord, assignee_login, title_regex):
         super().__init__(discord)
         self.assignee_login = assignee_login
+        self.title_regex = title_regex
 
     async def act_on_pulls(self, pulls):
         logger.info("%s: wanting to act on %d pulls: %s", self.name, len(pulls), sorted(_["number"] for _ in pulls))

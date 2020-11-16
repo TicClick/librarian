@@ -4,6 +4,7 @@ github:
   token: "abcdefgh"
   assignee_login: "TicClick"
   repo: "someone/osu-wiki"
+  title_regex: ^\[(\w+.?)?RU(.+)?\]
 
 discord:
   token: "abc.def.ghi"

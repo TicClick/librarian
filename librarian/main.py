@@ -58,6 +58,7 @@ def main():
         assignee_login=config["github"]["assignee_login"],
         review_channel=config["discord"]["review_channel"],
         review_role_id=config["discord"]["review_role_id"],
+        title_regex=config["github"]["title_regex"],
     )
 
     async def start():
