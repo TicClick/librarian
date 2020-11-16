@@ -190,17 +190,17 @@ class Client(discord.Client):
         logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)
         content = "<@&{}>, {}".format(self.review_role_id, random.choice(GREETINGS))
         description = (
-            f"author: {pull.user_login}\n"
+            f"**author:** {pull.user_login}\n"
             f"last update: {pull.updated_at.date()} at {pull.updated_at.time()} GMT"
         )
         embed = discord.Embed(
-            title="#{} \"{}\" by {}".format(pull.number, pull.title, pull.user_login),
+            title="#{} {}".format(pull.number, pull.title),
             description=description,
             url=pull.url_for(self.github.repo),
             color=COLORS.get(pull.real_state, "closed"),
         )
         embed.set_footer(
-            text="|".join((
+            text=" | ".join((
                 pull.real_state.upper(),
                 "{comments} review comment{comments_suffix}".format(
                     comments=pull.review_comments,
