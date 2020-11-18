@@ -2,7 +2,6 @@ import abc
 import asyncio
 import itertools as it
 import logging
-import re
 import time
 
 import arrow
@@ -216,7 +215,7 @@ class MonitorGithubPulls(Routine):
             return
 
         logger.info(
-            "%s: fetched %d pulls: %s",
+            "%s: fetched incomplete details for %d pulls: %s",
             self.name, len(pulls), sorted(_["number"] for _ in pulls)
         )
 
@@ -230,26 +229,37 @@ class MonitorGithubPulls(Routine):
             self.name, len(cached_active_pulls), sorted(cached_active_pulls.keys())
         )
 
-        def open_pulls():
+        def open_pulls_numbers(cutoff_by_update=True):
             for p in pulls:
-                if p["number"] not in cached_active_pulls:
+                pn = p["number"]
+                # new pulls should always be added from FetchGithubPulls
+                if pn not in cached_active_pulls:
                     continue
-                if arrow.get(p["updated_at"]) > arrow.get(cached_active_pulls[p["number"]].updated_at):
-                    yield p
 
-        open_pulls_numbers = {_["number"] for _ in open_pulls()}
+                # we have the most recent data at hand -- safe to skip the fetch here
+                if(
+                    cutoff_by_update and
+                    arrow.get(p["updated_at"]) <= arrow.get(cached_active_pulls[pn].updated_at)
+                ):
+                    continue
+
+                yield pn
 
         # fetch requests that are cached as not closed, but actually ARE closed
-        closed_pulls = set(cached_active_pulls.keys()) - open_pulls_numbers
+        closed_pulls = (
+            set(cached_active_pulls.keys()) -
+            set(open_pulls_numbers(cutoff_by_update=False))
+        )
         logger.info(
             "%s: %d stale PR(s) (already closed): %s",
             self.name, len(closed_pulls), sorted(closed_pulls)
         )
 
-        all_to_fetch = sorted(it.chain(open_pulls_numbers, closed_pulls))
+        pulls_to_actualize = set(open_pulls_numbers())
+        all_to_fetch = sorted(it.chain(pulls_to_actualize, closed_pulls))
         logger.info(
-            "%s: fetching %d open + %d cached pulls",
-            self.name, len(open_pulls_numbers), len(closed_pulls)
+            "%s: %d open pulls to actualize, %d closed pulls listed as open in DB",
+            self.name, len(pulls_to_actualize), len(closed_pulls)
         )
 
         async with self.github.make_session() as aio_session:
@@ -278,7 +288,7 @@ class MonitorGithubPulls(Routine):
             for pull_id, result in results.items():
                 if (
                     isinstance(result, dict) and
-                    result["number"] in open_pulls_numbers and
+                    result["number"] in all_to_fetch and
                     self.title_regex.match(result["title"])
                 ):
                     yield result

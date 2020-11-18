@@ -30,7 +30,7 @@ def setup_logging(source_dir, logging_config, loggers):
         logger.setLevel(getattr(logging, logging_config["level"]))
 
 
-def main():
+def configure_bot():
     source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
     config_path = os.path.join(source_dir, "config/config.yaml")
     with open(config_path, "r") as fd:
@@ -61,6 +61,10 @@ def main():
         title_regex=config["github"]["title_regex"],
     )
 
+    return bot, config
+
+
+def run_bot(bot, config):
     async def start():
         tasks = list(map(
             asyncio.create_task,
@@ -78,6 +82,10 @@ def main():
         logger.debug("Shutdown started")
         asyncio.new_event_loop().run_until_complete(bot.shutdown())
         logger.debug("Shutdown complete")
+
+
+def main():
+    run_bot(*configure_bot())
 
 
 if __name__ == "__main__":

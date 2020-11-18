@@ -217,11 +217,17 @@ class Client(discord.Client):
         return await message.channel.send(content=codewrap(statuses))
 
     async def post_update(self, pull=None, channel_id=None, message_id=None):
+        if isinstance(pull, int):
+            pull = self.storage.pulls.by_number(pull)
+        if pull is None:
+            logger.warning("Can't post update: pull #%s not found", pull)
+            return
+
         logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)
         content = "<@&{}>, {}".format(self.review_role_id, random.choice(GREETINGS))
         description = (
-            f"**author:** {pull.user_login}\n"
-            f"last update: {pull.updated_at.date()} at {pull.updated_at.time()} GMT"
+            f"**author**: {pull.user_login}\n"
+            f"**last update**: {pull.updated_at.date()} at {pull.updated_at.time()} GMT"
         )
         embed = discord.Embed(
             title="#{} {}".format(pull.number, pull.title),
@@ -245,6 +251,9 @@ class Client(discord.Client):
         )
 
         channel = self.get_channel(channel_id or self.review_channel)
+        if channel is None:
+            channel = await self.fetch_channel(channel_id or self.review_channel)
+
         if message_id is None:
             message = await channel.send(content=content, embed=embed)
             logger.debug("New message created #%s", message.id)
