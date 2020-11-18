@@ -160,7 +160,6 @@ class Client(discord.Client):
 
         query_end_date = end_date.shift(days=1)
         pulls = self.storage.pulls.count_merged(start_date=start_date.date(), end_date=query_end_date.date())
-        print(len(pulls))
         pulls = sorted(
             filter(lambda p: self.title_regex.match(p.title), pulls),
             key=lambda p: p.number
