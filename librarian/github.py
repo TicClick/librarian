@@ -56,7 +56,7 @@ class GitHub(object):
         query = query or {}
         url = f"{self.BASE_URL}/{path}"
 
-        async with session_method(url, params=query, data=data) as result:
+        async with session_method(url, params=query, json=data) as result:
             try:
                 if result.status >= http.HTTPStatus.BAD_REQUEST:
                     result.raise_for_status()

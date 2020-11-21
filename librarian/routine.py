@@ -204,6 +204,7 @@ class MonitorGithubPulls(Routine):
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for pull, result in zip(pulls, results):
+            # 404 also means that you have no write access to a repository
             if isinstance(result, Exception):
                 logger.error("%s: failed to set assignee for #%s: %s", self.name, pull["number"], result)
 

@@ -1,13 +1,13 @@
 # copy this to config.yaml and override anything you need
 
 github:
-  token: "abcdefgh"
+  token: "abcdefgh"  # https://github.com/settings/tokens
   assignee_login: "TicClick"
   repo: "someone/osu-wiki"
   title_regex: ^\[(\w+.?)?RU(.+)?\]
 
 discord:
-  token: "abc.def.ghi"
+  token: "abc.def.ghi"  # bot token from https://discord.com/developers/applications
   owner_id: 12345
   review_channel: 67890
   review_role_id: 12345
