@@ -196,7 +196,7 @@ class MonitorGithubPulls(Routine):
                 future = self.github.update_single_issue(
                     pull["number"],
                     session=aio_session,
-                    body={
+                    data={
                         "assignees": new_assignees
                     }
                 )

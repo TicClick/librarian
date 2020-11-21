@@ -78,9 +78,9 @@ class GitHub(object):
             if exc.status == http.HTTPStatus.NOT_FOUND:
                 return None
 
-    async def update_single_issue(self, issue_id, session=None, body=None):
+    async def update_single_issue(self, issue_id, session=None, data=None):
         path = f"repos/{self.repo}/issues/{issue_id}"
-        return await self.patch(path, session=session, body=body or {})
+        return await self.patch(path, session=session, data=data or {})
 
     async def get_single_issue(self, issue_id, session=None):
         path = f"repos/{self.repo}/issues/{issue_id}"
