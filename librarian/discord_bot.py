@@ -44,6 +44,13 @@ COLORS = {
     "merged": 0x6f42c1,
 }
 
+ICONS = {
+    "open": "https://raw.githubusercontent.com/primer/octicons/master/icons/check-circle-24.svg",
+    "draft": "https://raw.githubusercontent.com/primer/octicons/master/icons/circle-24.svg",
+    "closed": "https://raw.githubusercontent.com/primer/octicons/master/icons/circle-slash-24.svg",
+    "merged": "https://raw.githubusercontent.com/primer/octicons/master/icons/check-circle-fill-24.svg",
+}
+
 
 def codewrap(obj):
     def inner():
@@ -247,7 +254,7 @@ class Client(discord.Client):
                     changed_files_suffix="" if pull.changed_files == 1 else "s"
                 )
             )),
-            icon_url="https://github.githubassets.com/favicons/favicon.png"
+            icon_url=ICONS.get(pull.real_state, "closed")
         )
 
         channel = self.get_channel(channel_id or self.review_channel)
