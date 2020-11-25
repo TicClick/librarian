@@ -11,11 +11,12 @@ discord:
   owner_id: 12345
   review_channel: 67890
   review_role_id: 12345
+  store_in_pins: true
 
 storage:
   path: "runtime/osuwiki.db"
 
-debug: False
+debug: true
 
 logging:
   file: "runtime/librarian.log"

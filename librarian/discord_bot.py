@@ -61,7 +61,7 @@ def codewrap(obj):
 class Client(discord.Client):
     def __init__(
         self, *args, github=None, storage=None, assignee_login=None, title_regex=None,
-        owner_id=None, review_channel=None, review_role_id=None,
+        owner_id=None, review_channel=None, review_role_id=None, store_in_pins=False,
         **kwargs
     ):
         self.github = github
@@ -71,6 +71,7 @@ class Client(discord.Client):
         self.review_channel = review_channel
         self.review_role_id = review_role_id
         self.title_regex = re.compile(title_regex)
+        self.store_in_pins = store_in_pins
 
         super().__init__(*args, **kwargs)
 
@@ -254,14 +255,13 @@ class Client(discord.Client):
             channel = await self.fetch_channel(channel_id or self.review_channel)
 
         if message_id is None:
-            message = await channel.send(content=content, embed=embed)
+            message = await channel.send(content=content, embed=embed)  # type: discord.Message
             logger.debug("New message created #%s", message.id)
-            return message.channel.id, message.id
 
         else:
             try:
                 logger.debug("Reading existing message #%s", message_id)
-                message = await channel.fetch_message(message_id)
+                message = await channel.fetch_message(message_id)  # type: discord.Message
 
             except discord.NotFound:
                 logger.error("Message #%s for pull #%s wasn't found", message_id, pull.number)
@@ -270,7 +270,17 @@ class Client(discord.Client):
             else:
                 logger.debug("Updating existing message #%s", message_id)
                 await message.edit(embed=embed)
-                return message.channel.id, message.id
+
+        if self.store_in_pins:
+            try:
+                if pull.state == "closed":
+                    await message.unpin()
+                elif not message.pinned:
+                    await message.pin()
+            except discord.DiscordException as exc:
+                logger.error("Failed to pin/unpin the message #%s: %s", message.id, exc)
+
+        return message.channel.id, message.id
 
     async def run_command(self, command):
         try:
