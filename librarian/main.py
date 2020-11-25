@@ -59,6 +59,7 @@ def configure_bot():
         review_channel=config["discord"]["review_channel"],
         review_role_id=config["discord"]["review_role_id"],
         title_regex=config["github"]["title_regex"],
+        store_in_pins=config["discord"]["store_in_pins"],
     )
 
     return bot, config
