@@ -44,11 +44,12 @@ COLORS = {
     "merged": 0x6f42c1,
 }
 
+# https://github.com/primer/octicons
 ICONS = {
-    "open": "https://raw.githubusercontent.com/primer/octicons/master/icons/check-circle-24.svg",
-    "draft": "https://raw.githubusercontent.com/primer/octicons/master/icons/circle-24.svg",
-    "closed": "https://raw.githubusercontent.com/primer/octicons/master/icons/circle-slash-24.svg",
-    "merged": "https://raw.githubusercontent.com/primer/octicons/master/icons/check-circle-fill-24.svg",
+    "open": "https://raw.githubusercontent.com/TicClick/librarian/main/media/check-circle-32.png",
+    "draft": "https://raw.githubusercontent.com/TicClick/librarian/main/media/circle-32.png",
+    "closed": "https://raw.githubusercontent.com/TicClick/librarian/main/media/circle-slash-32.png",
+    "merged": "https://raw.githubusercontent.com/TicClick/librarian/main/media/check-circle-fill-32.png",
 }
 
 
