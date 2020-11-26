@@ -83,10 +83,13 @@ class Client(discord.Client):
 
         super().__init__(*args, **kwargs)
 
-        self.routines = [
-            routine.FetchGithubPulls(self),
-            routine.MonitorGithubPulls(self, assignee_login, self.title_regex),
-        ]
+        self.routines = {
+            r.name: r
+            for r in (
+                routine.FetchGithubPulls(self),
+                routine.MonitorGithubPulls(self, assignee_login, self.title_regex),
+            )
+        }
 
         self.handlers = {
             ".count": self.count_pulls,
@@ -98,12 +101,12 @@ class Client(discord.Client):
         logger.debug("Handlers: %s", ", ".join(self.handlers.keys()))
 
     def start_routines(self):
-        logger.debug("Starting routines: %s", ", ".join(r.name for r in self.routines))
-        return [r.loop() for r in self.routines]
+        logger.debug("Starting routines: %s", ", ".join(self.routines.keys()))
+        return [r.loop() for r in self.routines.items()]
 
     async def shutdown(self):
         logger.info("Shutting down the bot")
-        for r in self.routines:
+        for r in self.routines.items():
             try:
                 logger.info("Waiting on %s", r.name)
                 await asyncio.wait_for(r.shutdown(), KILL_TIMEOUT)
@@ -221,7 +224,7 @@ class Client(discord.Client):
                 status_string=status_string if status_string else "{}"
             )
 
-        statuses = await asyncio.gather(*map(routine_repr, self.routines))
+        statuses = await asyncio.gather(*map(routine_repr, self.routines.items()))
         return await message.channel.send(content=codewrap(statuses))
 
     async def post_update(self, pull=None, channel_id=None, message_id=None):

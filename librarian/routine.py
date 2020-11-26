@@ -79,13 +79,18 @@ class Routine(metaclass=abc.ABCMeta):
 
 
 class FetchGithubPulls(Routine):
-    interval = 5
+    interval = 3
     slow_interval = 60
     last_pull_field = "last_pull"
 
     def __init__(self, discord):
         super().__init__(discord)
         self.last_pull = None
+
+    def fetched(self, pull_number):
+        if self.last_pull is None:
+            return False
+        return pull_number <= self.last_pull
 
     async def run(self):
         if self.last_pull is None:
@@ -233,8 +238,10 @@ class MonitorGithubPulls(Routine):
         def open_pulls_numbers(cutoff_by_update=True):
             for p in pulls:
                 pn = p["number"]
-                # new pulls should always be added from FetchGithubPulls
+                # new pulls should always be added from FetchGithubPulls, unless they are reopened
                 if pn not in cached_active_pulls:
+                    if self.discord.routines[FetchGithubPulls.__name__].fetched(pn):
+                        yield pn
                     continue
 
                 # we have the most recent data at hand -- safe to skip the fetch here
