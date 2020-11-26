@@ -102,11 +102,11 @@ class Client(discord.Client):
 
     def start_routines(self):
         logger.debug("Starting routines: %s", ", ".join(self.routines.keys()))
-        return [r.loop() for r in self.routines.items()]
+        return [r.loop() for r in self.routines.values()]
 
     async def shutdown(self):
         logger.info("Shutting down the bot")
-        for r in self.routines.items():
+        for r in self.routines.values():
             try:
                 logger.info("Waiting on %s", r.name)
                 await asyncio.wait_for(r.shutdown(), KILL_TIMEOUT)
@@ -224,7 +224,7 @@ class Client(discord.Client):
                 status_string=status_string if status_string else "{}"
             )
 
-        statuses = await asyncio.gather(*map(routine_repr, self.routines.items()))
+        statuses = await asyncio.gather(*map(routine_repr, self.routines.values()))
         return await message.channel.send(content=codewrap(statuses))
 
     async def post_update(self, pull=None, channel_id=None, message_id=None):
