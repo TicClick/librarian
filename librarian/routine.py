@@ -138,46 +138,34 @@ class MonitorGithubPulls(Routine):
         self.title_regex = title_regex
 
     async def act_on_pulls(self, pulls):
-        logger.info("%s: wanting to act on %d pulls: %s", self.name, len(pulls), sorted(_["number"] for _ in pulls))
-
-        def filter_pulls():
-            for pull in pulls:
-                if self.assignee_login == pull["user"]["login"]:
-                    continue
-
-                if self.assignee_login not in [
-                    assignee["login"]
-                    for assignee in pull["assignees"]
-                ]:
-                    yield pull
-
-        await self.add_assignee(list(filter_pulls()))
+        logger.info("%s: wanting to act on %d pulls: %s", self.name, len(pulls), sorted(_.number for _ in pulls))
+        await self.add_assignee([_ for _ in pulls if _.user_login != self.assignee_login])
 
         messages = {
-            m.pull_number: m
-            for m in self.storage.discord_messages.by_pull_numbers(*[_["number"] for _ in pulls])
-            if m.pull_number > 4450  # the bot was started roughly that PR's appearance
+            pull.number: pull.discord_messages[0] if pull.discord_messages else None
+            for pull in pulls if
+            pull.number > 4450  # the bot was started roughly after that PR's appearance
         }
         await self.update_messages(pulls, messages)
 
     async def update_messages(self, pulls, messages):
         logger.info(
             "%s: updating Discord messages for %d pulls: %s",
-            self.name, len(pulls), sorted(_["number"] for _ in pulls)
+            self.name, len(pulls), sorted(_.number for _ in pulls)
         )
         new_messages = []
         for pull in pulls:
-            message = messages.get(pull["number"])
+            message = messages.get(pull.number)
             channel_id, message_id = None, None
             if message is not None:
                 channel_id = message.channel_id
                 message_id = message.id
-            new_channel_id, new_message_id = await self.discord.post_update(storage.Pull(pull), channel_id, message_id)
+            new_channel_id, new_message_id = await self.discord.post_update(pull, channel_id, message_id)
             if message_id is None:
                 new_messages.append(storage.DiscordMessage(
                     id=new_message_id,
                     channel_id=new_channel_id,
-                    pull_number=pull["number"]
+                    pull_number=pull.number
                 ))
         self.storage.discord_messages.save(*new_messages)
 
@@ -187,53 +175,40 @@ class MonitorGithubPulls(Routine):
 
         logger.info(
             "%s: setting assignee for %d pulls: %s",
-            self.name, len(pulls), sorted(_["number"] for _ in pulls)
+            self.name, len(pulls), sorted(_.number for _ in pulls)
         )
         async with self.github.make_session() as aio_session:
             tasks = []
             for pull in pulls:
-                new_assignees = [assignee["login"] for assignee in pull["assignees"]]
-                logger.info(
-                    "%s: new assignees for #%s = %s + %s",
-                    self.name, pull["number"], new_assignees, self.assignee_login
-                )
-                new_assignees.append(self.assignee_login)
-                future = self.github.update_single_issue(
-                    pull["number"],
-                    session=aio_session,
-                    data={
-                        "assignees": new_assignees
-                    }
-                )
+                future = self.github.add_assignee(pull.number, self.assignee_login, session=aio_session)
                 tasks.append(asyncio.create_task(future))
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for pull, result in zip(pulls, results):
             # 404 also means that you have no write access to a repository
             if isinstance(result, Exception):
-                logger.error("%s: failed to set assignee for #%s: %s", self.name, pull["number"], result)
+                logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
 
     async def run(self):
         try:
             pulls = await self.github.pulls()
+            logger.info(
+                "%s: fetched incomplete details for %d pulls: %s",
+                self.name, len(pulls), sorted(_["number"] for _ in pulls)
+            )
         except aiohttp.client_exceptions.ClientError as exc:
             logger.error("%s: failed to fetch open pulls: %s", self.name, exc)
             return
-
-        logger.info(
-            "%s: fetched incomplete details for %d pulls: %s",
-            self.name, len(pulls), sorted(_["number"] for _ in pulls)
-        )
 
         with self.storage.pulls.session_scope() as db_session:
             cached_active_pulls = {
                 _.number: _
                 for _ in self.storage.pulls.active_pulls(db_session)
             }
-        logger.info(
-            "%s: DB reports %d active pulls: %s",
-            self.name, len(cached_active_pulls), sorted(cached_active_pulls.keys())
-        )
+            logger.info(
+                "%s: DB reports %d active pulls: %s",
+                self.name, len(cached_active_pulls), sorted(cached_active_pulls.keys())
+            )
 
         def open_pulls_numbers(cutoff_by_update=True):
             for p in pulls:
@@ -244,8 +219,7 @@ class MonitorGithubPulls(Routine):
                         yield pn
                     continue
 
-                # we have the most recent data at hand -- safe to skip the fetch here
-                if(
+                if (
                     cutoff_by_update and
                     arrow.get(p["updated_at"]) <= arrow.get(cached_active_pulls[pn].updated_at)
                 ):
@@ -290,16 +264,21 @@ class MonitorGithubPulls(Routine):
                 "%s: saving %d pulls to DB: %s",
                 self.name, len(to_save), sorted([_["number"] for _ in to_save])
             )
-            self.storage.pulls.save_many_from_payload(to_save)
+            saved = self.storage.pulls.save_many_from_payload(to_save)
+            saved_numbers = {_.number for _ in saved}
 
         def worth_updating():
-            for pull_id, result in results.items():
+            for pull in saved:
+                if self.title_regex.match(pull.title) and pull.number in all_to_fetch:
+                    yield pull
+
+            for pull in cached_active_pulls.values():
                 if (
-                    isinstance(result, dict) and
-                    result["number"] in all_to_fetch and
-                    self.title_regex.match(result["title"])
+                    self.title_regex.match(pull.title) and
+                    pull.number not in saved_numbers and
+                    not pull.discord_messages
                 ):
-                    yield result
+                    yield pull
 
         await self.act_on_pulls(list(worth_updating()))
 

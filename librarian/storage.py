@@ -33,6 +33,10 @@ class Pull(Base):
     deleted_files = sql.Column(sql.Integer, nullable=False, default=0)
     changed_files = sql.Column(sql.Integer, nullable=False, default=0)
 
+    discord_messages = orm.relationship(
+        "DiscordMessage", order_by="DiscordMessage.id", back_populates="pull", lazy="joined"
+    )
+
     DIRECT_KEYS = (
         "id", "number", "state", "locked", "title", "created_at", "updated_at", "merged_at",
         "merged", "draft", "review_comments", "commits", "changed_files"
@@ -89,7 +93,9 @@ class DiscordMessage(Base):
 
     id = sql.Column(sql.BigInteger, primary_key=True)
     channel_id = sql.Column(sql.BigInteger)
-    pull_number = sql.Column(sql.Integer)
+    pull_number = sql.Column(sql.Integer, sql.ForeignKey("pulls.number"))
+
+    pull = orm.relationship("Pull", back_populates="discord_messages")
 
 
 class Storage:
@@ -150,6 +156,8 @@ class PullHelper(Helper):
             for pull in existing:
                 pull.update(pulls[pull.number])
                 s.add(pull)
+
+        return existing
 
     def by_number(self, pull_number):
         with self.session_scope() as s:

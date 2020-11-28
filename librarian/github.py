@@ -67,8 +67,8 @@ class GitHub(object):
     async def fetch(self, path, query=None, session=None):
         return await self.call_method(path=path, query=query, session=session, method="get")
 
-    async def patch(self, path, query=None, data=None, session=None):
-        return await self.call_method(path=path, query=query, data=data, session=session, method="patch")
+    async def post(self, path, query=None, data=None, session=None):
+        return await self.call_method(path=path, query=query, data=data, session=session, method="post")
 
     async def get_single_pull(self, pull_id, session=None):
         path = f"repos/{self.repo}/pulls/{pull_id}"
@@ -78,9 +78,10 @@ class GitHub(object):
             if exc.status == http.HTTPStatus.NOT_FOUND:
                 return None
 
-    async def update_single_issue(self, issue_id, session=None, data=None):
-        path = f"repos/{self.repo}/issues/{issue_id}"
-        return await self.patch(path, session=session, data=data or {})
+    async def add_assignee(self, issue_id, assignee, session=None):
+        path = f"repos/{self.repo}/issues/{issue_id}/assignees"
+        data = {"assignees": [assignee]}
+        return await self.post(path, session=session, data=data)
 
     async def get_single_issue(self, issue_id, session=None):
         path = f"repos/{self.repo}/issues/{issue_id}"
