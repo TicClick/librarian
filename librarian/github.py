@@ -34,23 +34,22 @@ class GitHub(object):
 
     def __init__(self, token, repo):
         self.__token = token
-        self.session = self.make_session()
         self.ratelimit = RateLimit()
         self.repo = repo
 
-    @property
-    def default_headers(self):
+    @classmethod
+    def make_default_headers(cls, token):
         return {
-            "Authorization": f"token {self.__token}",
+            "Authorization": f"token {token}",
             "Connection": "keep-alive",
         }
 
     def make_session(self):
-        return aiohttp.ClientSession(headers=self.default_headers)
+        return aiohttp.ClientSession(headers=self.make_default_headers(self.__token))
 
     async def call_method(self, path, query=None, data=None, session=None, method="get"):
         if session is None:
-            session = self.session
+            session = self.make_session()
 
         session_method = getattr(session, method)
         query = query or {}
