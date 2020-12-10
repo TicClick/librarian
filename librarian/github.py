@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimit:
+    HEADER_LIMIT = "X-Ratelimit-Limit"
+    HEADER_REMAINING = "X-Ratelimit-Remaining"
+    HEADER_RESET = "X-Ratelimit-Reset"
+
     def __init__(self, headers=None):
         self.limit = None
         self.left = None
@@ -18,9 +22,9 @@ class RateLimit:
             self.update(headers)
 
     def update(self, headers):
-        self.limit = headers.get("X-Ratelimit-Limit")
-        self.left = headers.get("X-Ratelimit-Remaining")
-        timestamp = headers.get("X-Ratelimit-Reset")
+        self.limit = headers.get(self.HEADER_LIMIT)
+        self.left = headers.get(self.HEADER_REMAINING)
+        timestamp = headers.get(self.HEADER_RESET)
         self.reset = arrow.get(int(timestamp)) if timestamp is not None else None
 
     def __repr__(self):

@@ -1,7 +1,6 @@
 import json
 import random
 
-import aiohttp
 from aiohttp import web
 import pytest
 
@@ -14,10 +13,16 @@ def existing_pulls(authors, titles):
     for number in range(1, 230):
         closed = random.random() < 0.8
         merged = random.random() < 0.9
+        assignees = set(
+            random.choice(authors)
+            for _ in range(3)
+            if random.random() < 0.3
+        )
         res.append(utils.make_pull(
             number,
             random.choice(authors),
             random.choice(titles),
+            assignees=assignees,
             state="closed" if closed else "open",
             merged=closed and merged
         ))
@@ -28,7 +33,7 @@ def existing_pulls(authors, titles):
 def get_routes(repo, existing_pulls):
     result = {}
 
-    async def list_pulls(request: aiohttp.ClientRequest):
+    async def list_pulls(request: web.Request):
         pulls = existing_pulls
         q = request.url.query
         if q.get("sort", "created") == "created":
@@ -58,8 +63,29 @@ def get_routes(repo, existing_pulls):
 
 
 @pytest.fixture
-def mock_github(monkeypatch, aiohttp_client, loop, get_routes, gh_token):
-    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, gh_token)
+def post_routes(repo, existing_pulls):
+    result = {}
+
+    def make_handler(pull):
+        async def add_assignee(request: web.Request):
+            data = json.loads(await request.content.read())
+            reply = utils.as_issue(pull)
+            if data and data["assignees"]:
+                reply = utils.with_assignees(reply, data["assignees"])
+            return web.Response(status=201, text=json.dumps(reply), content_type="application/json")
+
+        return add_assignee
+
+    for pull in existing_pulls:
+        pull_path = "/repos/{}/issues/{}/assignees".format(repo, pull["number"])
+        result[pull_path] = make_handler(pull)
+
+    return result
+
+
+@pytest.fixture
+def mock_github(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_token):
+    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_token)
 
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 import hashlib
+import itertools as it
 import json
 import random
 
@@ -23,7 +24,7 @@ def to_github_date(datetime):
     return datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def make_pull(number, author, title, state, merged):
+def make_pull(number, author, title, state, assignees, merged):
     created_at = make_date()
     updated_at = created_at.shift(hours=2)
     return {
@@ -32,12 +33,9 @@ def make_pull(number, author, title, state, merged):
         "state": state,
         "locked": False,
         "title": title,
-        "user": {
-            "login": author,
-            "id": make_id(author),
-        },
+        "user": user(author),
         "labels": [],
-        "assignees": [],
+        "assignees": [user(assignee) for assignee in assignees],
         "created_at": to_github_date(created_at),
         "updated_at": to_github_date(updated_at),
         "closed_at": to_github_date(updated_at) if state == "closed" else None,
@@ -56,16 +54,32 @@ def as_issue(pull):
     return issue
 
 
+def user(login):
+    return {"login": login, "id": make_id(login)}
+
+
+def with_assignees(pull, assignees):
+    pull = dict(pull)
+    assignees = set(it.chain(
+        (_["login"] for _ in pull.get("assignees", [])),
+        assignees
+    ))
+    pull["assignees"] = [user(assignee) for assignee in assignees]
+    return pull
+
+
 def make_response(status, data):
     async def response(request):
         return web.Response(status=status, text=json.dumps(data), content_type="application/json")
     return response
 
 
-def make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, gh_token):
+def make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_token):
     app = web.Application()
     for path, handler in get_routes.items():
         app.router.add_get(path, handler)
+    for path, handler in post_routes.items():
+        app.router.add_post(path, handler)
 
     api = loop.run_until_complete(
         aiohttp_client(

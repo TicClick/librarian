@@ -1,6 +1,6 @@
 SYSTEM_PYTHON = python3
 
-.PHONY = setup test run cov 
+.PHONY = setup test run coverage cov hcov
 
 RUNTIME_DIR = runtime
 VENV_DIR = ${RUNTIME_DIR}/venv
@@ -22,10 +22,13 @@ test: setup
 run: setup
 	${VENV_PYTHON} -m librarian.main
 
-cov: setup
+coverage: setup
 	${BIN_DIR}/coverage run --source librarian -m pytest
 
-html: cov
+cov: coverage
+	${BIN_DIR}/coverage report -m
+
+hcov: coverage
 	${BIN_DIR}/coverage html && ((which xdg-open && xdg-open htmlcov/index.html) || open htmlcov/index.html)
 
 clean:
