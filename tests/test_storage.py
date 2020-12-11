@@ -206,15 +206,18 @@ class TestMetadata:
 
 class TestDiscordMessages:
     def test__save(self, storage, existing_pulls):
-        pulls = random.sample(existing_pulls, 5)
+        n = random.randint(1, 100)
         storage.discord_messages.save(*(
             stg.DiscordMessage(
-                id=random.randint(1, 1000),
+                id=msg_id,
                 channel_id=random.randint(1, 1000),
                 pull_number=pull["number"]
             )
-            for pull in pulls
+            for msg_id, pull in zip(
+                random.sample(range(1, 1000), n),
+                random.sample(existing_pulls, n)
+            )
         ))
 
         restored = storage.discord_messages.by_pull_numbers(*(_["number"] for _ in existing_pulls))
-        assert len(restored) == len(pulls)
+        assert len(restored) == n
