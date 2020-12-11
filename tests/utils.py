@@ -24,7 +24,7 @@ def to_github_date(datetime):
     return datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def make_pull(number, author, title, state, assignees, merged):
+def make_pull(number, author, title, state, assignees, merged, draft):
     created_at = make_date()
     updated_at = created_at.shift(hours=2)
     return {
@@ -40,8 +40,9 @@ def make_pull(number, author, title, state, assignees, merged):
         "updated_at": to_github_date(updated_at),
         "closed_at": to_github_date(updated_at) if state == "closed" else None,
         "merged_at": to_github_date(updated_at) if merged else None,
-        "draft": False,
+        "draft": draft,
         "merged": merged,
+        "commits": random.randint(0, 100),
         "review_comments": random.randint(0, 100),
         "changed_files": random.randint(0, 10),
     }

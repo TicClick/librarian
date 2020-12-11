@@ -37,8 +37,9 @@ class Pull(Base):
         "DiscordMessage", order_by="DiscordMessage.id", back_populates="pull", lazy="joined"
     )
 
+    ID_KEY = "id"
     DIRECT_KEYS = (
-        "id", "number", "state", "locked", "title", "created_at", "updated_at", "merged_at",
+        ID_KEY, "number", "state", "locked", "title", "created_at", "updated_at", "merged_at",
         "merged", "draft", "review_comments", "commits", "changed_files"
     )
     DATETIME_KEYS = {
@@ -48,10 +49,16 @@ class Pull(Base):
         "user_login", "user_id"
     )
 
+    def read_nested(self, payload, k):
+        result = None
+        for chunk in k.split("_"):
+            result = (payload if result is None else result).get(chunk)
+        return result
+
     def update(self, payload):
         extracted = {}
         for key in self.DIRECT_KEYS:
-            if self.id is not None and key == "id":
+            if self.id is not None and key == self.ID_KEY:
                 continue
 
             extracted[key] = payload.get(key)
@@ -59,10 +66,7 @@ class Pull(Base):
                 extracted[key] = arrow.get(extracted[key]).datetime
 
         for key in self.NESTED_KEYS:
-            result = None
-            for chunk in key.split("_"):
-                result = (payload if result is None else result).get(chunk)
-            extracted[key] = result
+            extracted[key] = self.read_nested(payload, key)
 
         super().__init__(**extracted)
 
@@ -76,9 +80,26 @@ class Pull(Base):
     def real_state(self):
         if self.merged:
             return "merged"
-        if self.draft:
+        if self.draft and self.state != "closed":
             return "draft"
         return self.state
+
+    def as_dict(self, id=True, nested=False):
+        data = {k: getattr(self, k) for k in self.DIRECT_KEYS + self.NESTED_KEYS}
+        if nested:
+            for k in self.NESTED_KEYS:
+                parts = k.split("_")
+                root = data
+                v = data.pop(k)
+                for i, part in enumerate(parts):
+                    if i == len(parts) - 1:
+                        root[part] = v
+                    else:
+                        root = root.setdefault(part, {})
+
+        if not id:
+            data.pop(self.ID_KEY)
+        return data
 
 
 class Metadata(Base):
@@ -110,7 +131,7 @@ class Storage:
 
     @staticmethod
     def create_engine(path) -> sql.engine.Engine:
-        return sql.create_engine(path, echo=False, convert_unicode=True)
+        return sql.create_engine(path, echo=False)
 
     def init_session_maker(self) -> type(orm.Session):
         return orm.scoped_session(orm.sessionmaker(
@@ -145,9 +166,12 @@ class PullHelper(Helper):
 
     def save(self, pull, insert=True):
         with self.session_scope() as s:
-            if insert and s.query(Pull).filter(Pull.number == pull.number).count():
-                return
-            s.add(pull)
+            if s.query(Pull).filter(Pull.number == pull.number).count():
+                if insert:
+                    return
+                s.query(Pull).filter(Pull.number == pull.number).update(pull.as_dict(id=False))
+            else:
+                s.add(pull)
 
     def save_many_from_payload(self, pulls):
         pulls = {_["number"]: _ for _ in pulls}
@@ -155,7 +179,13 @@ class PullHelper(Helper):
             existing = s.query(Pull).filter(Pull.number.in_(pulls)).all()
             for pull in existing:
                 pull.update(pulls[pull.number])
-                s.add(pull)
+
+            s.add_all(existing)
+            s.add_all([
+                Pull(p)
+                for num, p in pulls.items() if
+                num not in set(_.number for _ in existing)
+            ])
 
         return existing
 
@@ -205,8 +235,7 @@ class MetadataHelper(Helper):
 class DiscordMessageHelper(Helper):
     def save(self, *messages):
         with self.session_scope() as s:
-            for m in messages:
-                s.add(m)
+            s.add_all(messages)
 
     def by_pull_numbers(self, *pull_numbers):
         with self.session_scope() as s:

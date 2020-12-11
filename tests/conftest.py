@@ -4,6 +4,8 @@ import random
 from aiohttp import web
 import pytest
 
+import librarian.storage
+
 from tests import utils
 
 
@@ -13,6 +15,7 @@ def existing_pulls(authors, titles):
     for number in range(1, 230):
         closed = random.random() < 0.8
         merged = random.random() < 0.9
+        draft = random.random() < 0.3
         assignees = set(
             random.choice(authors)
             for _ in range(3)
@@ -24,7 +27,8 @@ def existing_pulls(authors, titles):
             random.choice(titles),
             assignees=assignees,
             state="closed" if closed else "open",
-            merged=closed and merged
+            merged=closed and merged and not draft,
+            draft=draft,
         ))
     return res
 
@@ -106,3 +110,18 @@ def authors():
 @pytest.fixture
 def titles():
     return ["Test", "[RU] Test", "TEST PULL DO NOT MERGE", "[EN/RU] update", "blah", "[FR] another blah"]
+
+
+@pytest.fixture
+def runtime(tmpdir):
+    yield tmpdir
+
+
+@pytest.fixture
+def dbpath(tmpdir):
+    yield str(tmpdir / "sqlite.db")
+
+
+@pytest.fixture
+def storage(dbpath):
+    yield librarian.storage.Storage(dbpath)
