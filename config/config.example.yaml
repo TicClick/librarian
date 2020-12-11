@@ -16,8 +16,6 @@ discord:
 storage:
   path: "runtime/osuwiki.db"
 
-debug: true
-
 logging:
   file: "runtime/librarian.log"
   level: DEBUG

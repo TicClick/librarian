@@ -43,12 +43,14 @@ class TestBasics:
 
 
 class TestInteraction:
+    MAX_PULLS = 50
+
     @pytest.mark.parametrize("outer_session", [True, False])
     async def test__get_single_object(self, mock_github, gh_token, repo, existing_pulls, outer_session):
         api = librarian.github.GitHub(gh_token, repo)
         session = api.make_session() if outer_session else None
 
-        for pull in existing_pulls:
+        for pull in random.sample(existing_pulls, self.MAX_PULLS):
             data = await api.get_single_pull(pull["number"], session=session)
             assert data["number"] == pull["number"]
             assert data["user"] and data["user"]["login"]

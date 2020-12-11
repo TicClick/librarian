@@ -134,6 +134,26 @@ class Client(discord.Client):
         async with message.channel.typing():
             await self.handlers[command](message, args)
 
+    @staticmethod
+    def parse_count_range(start_date, end_date):
+        today = arrow.Arrow.utcnow().floor("day")
+
+        if start_date is None:
+            if end_date is None:
+                return today.floor("month"), today.ceil("day")
+
+            if end_date == "lastmonth":
+                first_day = today.shift(months=-1).floor("month")
+                return first_day, first_day.ceil("month")
+
+            raise ValueError("Logic error: can't use end_date without start_date")
+
+        if end_date is None:
+            start_date = arrow.get(start_date).floor("month")
+            return start_date, start_date.ceil("month")
+
+        return arrow.get(start_date).floor("day"), arrow.get(end_date).ceil("day")
+
     async def count_pulls(self, message: discord.Message, args):
         """
         pull requests merged within a time span
@@ -143,42 +163,29 @@ class Client(discord.Client):
         .count <from> <to>: use two dates, for example, 2020-08-30 and 2020-09-30
         """
 
-        start_date = None
-        end_date = arrow.Arrow.utcnow()
-        if args:
-            if len(args) == 1:
-                if args[0] == "lastmonth":
-                    end_date = end_date.shift(days=-end_date.day)  # last month's last day
-                    start_date = end_date.replace(day=1)  # current/last month's first day
-                else:
-                    try:
-                        start_date = arrow.get(args[0])
-                        end_date = start_date.shift(months=1, days=-1)
-                    except ValueError:
-                        pass
+        if not args:
+            start_date, end_date = None, None
+        elif len(args) == 1:
+            if args[0] == "lastmonth":
+                start_date, end_date = [None, args[0]]
             else:
-                if len(args) == 2:
-                    try:
-                        start_date = arrow.get(args[0])
-                        end_date = arrow.get(args[1])
-                    except ValueError:
-                        pass
-
+                start_date, end_date = [args[0], None]
         else:
-            start_date = end_date.replace(day=1)  # current/last month's first day
+            start_date, end_date = args[:2]
 
-        if start_date is None:
+        try:
+            start_date, end_date = self.parse_count_range(start_date, end_date)
+        except ValueError:
             return await self.print_help(message, ".count")
 
-        query_end_date = end_date.shift(days=1)
-        pulls = self.storage.pulls.count_merged(start_date=start_date.date(), end_date=query_end_date.date())
+        pulls = self.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
         pulls = sorted(
             filter(lambda p: self.title_regex.match(p.title), pulls),
             key=lambda p: p.number
         )
         logger.debug(
             "Pulls in [%s, %s): %s",
-            start_date, query_end_date, " ".join(str(_.number) for _ in pulls)
+            start_date, end_date, " ".join(str(_.number) for _ in pulls)
         )
 
         msg = "{count} pulls merged during [{start_date}, {end_date}]".format(
@@ -188,7 +195,7 @@ class Client(discord.Client):
         )
 
         if not pulls:
-            return await message.channel.send(msg)
+            return await message.channel.send(content=msg)
 
         def pull_repr(pull):
             return "`{merged_at}`: [{title}]({url}) by {author}".format(
@@ -359,8 +366,3 @@ class Client(discord.Client):
                 reply = codewrap(textwrap.dedent(self.handlers[command].__doc__))
 
         await message.channel.send(content=reply)
-
-
-class DummyClient(Client):
-    async def run(self, *args, **kwargs):
-        return await asyncio.sleep(86400)

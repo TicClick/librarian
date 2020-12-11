@@ -50,8 +50,7 @@ def configure_bot():
     storage_path = os.path.join(source_dir, config["storage"]["path"])
     db = storage.Storage(storage_path)
 
-    client_class = discord_bot.DummyClient if config["debug"] else discord_bot.Client
-    bot = client_class(
+    bot = discord_bot.Client(
         github=github_api,
         storage=db,
         owner_id=config["discord"]["owner_id"],

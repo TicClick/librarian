@@ -4,6 +4,8 @@ import random
 from aiohttp import web
 import pytest
 
+import librarian.discord_bot
+import librarian.github
 import librarian.storage
 
 from tests import utils
@@ -12,7 +14,7 @@ from tests import utils
 @pytest.fixture
 def existing_pulls(authors, titles):
     res = []
-    for number in range(1, 230):
+    for number in range(1, 300):
         closed = random.random() < 0.8
         merged = random.random() < 0.9
         draft = random.random() < 0.3
@@ -109,7 +111,12 @@ def authors():
 
 @pytest.fixture
 def titles():
-    return ["Test", "[RU] Test", "TEST PULL DO NOT MERGE", "[EN/RU] update", "blah", "[FR] another blah"]
+    return ["Test", "[RU] Test", "TEST PULL DO NOT MERGE", "[EN/RU] update", "[PL] blah", "[FR] another blah"]
+
+
+@pytest.fixture
+def regex():
+    return r"^\[(\w+.?)?RU(.+)?\]"
 
 
 @pytest.fixture
@@ -125,3 +132,12 @@ def dbpath(tmpdir):
 @pytest.fixture
 def storage(dbpath):
     yield librarian.storage.Storage(dbpath)
+
+
+@pytest.fixture
+def client(mock_github, storage, repo, gh_token, regex):
+    yield librarian.discord_bot.Client(
+        github=librarian.github.GitHub(repo, gh_token),
+        storage=storage,
+        title_regex=regex,
+    )

@@ -15,7 +15,7 @@ def make_id(data):
 
 def make_date(since=None):
     return arrow.get(
-        year=2020, month=12, day=random.randint(1, 31),
+        year=2020, month=random.randint(1, 12), day=random.randint(1, 28),
         hour=random.randint(0, 23), minute=random.randint(0, 59), second=random.randint(0, 59)
     )
 
