@@ -4,7 +4,6 @@ from urllib import parse
 
 import arrow
 import pytest
-from sqlalchemy import orm
 
 import librarian.storage as stg
 
@@ -82,8 +81,8 @@ class TestPulls:
     def test__save(self, storage, existing_pulls, mocker):
         count = 0
         storage.pulls.save = mocker.Mock(side_effect=storage.pulls.save)
-        mocker.patch("librarian.storage.PullHelper.save", side_effect=stg.PullHelper.save)
-        with storage.session_scope() as s:  # type: orm.Session
+        mocker.patch.object(stg.PullHelper, "save", side_effect=stg.PullHelper.save)
+        with storage.session_scope() as s:
             add_object = mocker.patch.object(s, "add", side_effect=s.add)
             for i, p in enumerate(existing_pulls):
                 storage.pulls.save_from_payload(p)
@@ -104,7 +103,7 @@ class TestPulls:
                 updated_pull = s.query(stg.Pull).filter(stg.Pull.number == p["number"]).first()
                 assert updated_pull.title == duplicate["title"]
 
-        with storage.session_scope() as s:  # type: orm.Session
+        with storage.session_scope() as s:
             assert s.query(stg.Pull).filter().count() == count
 
         assert storage.pulls.by_number(1234567) is None
