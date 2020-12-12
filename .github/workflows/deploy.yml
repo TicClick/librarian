@@ -40,12 +40,10 @@ jobs:
           WHERE: ${{secrets.DEPLOY_SERVER_AND_USER}}
           PASS: ${{secrets.SSH_PASSPHRASE}}
         run: |
-          ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa "$WHERE" << EOF
-          
+          ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa "$WHERE" <<EOF
             [ -e librarian ] || git clone $REPOSITORY
             cd librarian
             pkill -INT -f librarian.main && tmux kill-session -t librarian
             git fetch && git checkout tags/v1.3
             make setup && tmux new -d -s librarian 'make run'
-            
             EOF
