@@ -18,7 +18,7 @@ class TestBasics:
             assert headers["Authorization"] == "token {}".format(gh_token)
 
     def test__ratelimit(self):
-        sometime = arrow.get().shift(years=100).replace(microsecond=0)
+        sometime = arrow.get().floor("second").shift(years=100)
         payload = {
             librarian.github.RateLimit.HEADER_REMAINING: 456,
             librarian.github.RateLimit.HEADER_LIMIT: 123,

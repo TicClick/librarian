@@ -11,33 +11,6 @@ def to_arrow(dt=None):
     return arrow.get(dt).floor("day")
 
 
-def datetime_testcases():
-    today = to_arrow()
-    first_day = today.floor("month")
-    return(
-        # from start of month to today
-        (None, None, first_day, today.ceil("day"), False),
-        # all previous month
-        (None, "lastmonth", first_day.shift(months=-1), first_day.shift(months=-1).ceil("month"), False),
-        # treated as 2015-01, hence the same as above
-        ("2015-01-21", None, to_arrow("2015-01-01"), to_arrow("2015-01-31").ceil("day"), False),
-        # just 4 days (April 1st, 2nd, 3rd, 4th)
-        ("2014-01-01", "2014-01-04", to_arrow("2014-01-01"), to_arrow("2014-01-04").ceil("day"), False),
-        # whole April
-        ("2020-04", None, to_arrow("2020-04-01"), to_arrow("2020-04-30").ceil("day"), False),
-        # two dates. full range
-        ("2020-04", "2031-01", to_arrow("2020-04-01"), to_arrow("2031-01-01").ceil("day"), False),
-        # typo
-        (None, "lastmoth", None, None, True),
-        # can't have only the end date, must be a flaw in logic of a command parser
-        (None, "2015-01-01", None, None, True),
-        # gibberish
-        ("malformed", "2020-01-01", None, None, True),
-        # gibberish
-        ("2020-010334", "whatever", None, None, True),
-    )
-
-
 @pytest.fixture
 def make_message(mocker):
     def inner():
@@ -53,45 +26,70 @@ def make_message(mocker):
 
 
 class TestCount:
-    @pytest.mark.parametrize(
-        ["start_date", "end_date", "expected_start", "expected_end", "fail"], datetime_testcases()
-    )
-    def test__date_range(self, start_date, end_date, expected_start, expected_end, fail):
-        if fail:
-            with pytest.raises(ValueError):
-                bot.Client.parse_count_range(start_date, end_date)
-        else:
-            start, end = bot.Client.parse_count_range(start_date, end_date)
-            assert start == expected_start
-            assert end == expected_end
+    @pytest.mark.freeze_time
+    def test__date_range(self):
+        today_end = arrow.get().ceil("day")
+        this_month_beginning = today_end.floor("month")
+        last_month_beginning = this_month_beginning.shift(months=-1)
+        last_month_end = last_month_beginning.ceil("month")
 
+        for args, start, end, expect_to_fail in (
+            ([], this_month_beginning, today_end, False),
+            ([bot.PullCountParser.LAST_MONTH], last_month_beginning, last_month_end, False),
+            (
+                ["2020-01-01", "2021-01-01"],
+                arrow.get("2020-01-01").floor("day"),
+                arrow.get("2021-01-01").ceil("day"),
+                False,
+            ),
+            (
+                ["2030-01-01", "2020-01-01"],  # dates are swapped
+                arrow.get("2020-01-01").floor("day"),
+                arrow.get("2030-01-01").ceil("day"),
+                False,
+            ),
+            (
+                ["2020-01", "2020-05"],
+                arrow.get("2020-01-01").floor("day"),
+                arrow.get("2020-05-01").ceil("day"),
+                False
+            ),
+            (["nonsense"], None, None, True),
+            (["2020-01-01"], None, None, True),
+        ):
+            if expect_to_fail:
+                with pytest.raises(ValueError):
+                    bot.PullCountParser.parse(args)
+            else:
+                parsed_start, parsed_end = bot.PullCountParser.parse(args)
+                assert start == parsed_start
+                assert end == parsed_end
+
+    @pytest.mark.freeze_time
     async def test__count(self, client, storage, existing_pulls, make_message):
+        storage.pulls.save_many_from_payload(existing_pulls)
         merged_only = [_ for _ in existing_pulls if _["merged"]]
 
         def pick_any():
             pull = random.choice(merged_only)
             return to_arrow(pull["merged_at"]).strftime("%Y-%m-%d")
 
-        storage.pulls.save_many_from_payload(existing_pulls)
+        def args_maker():
+            yield []
+            yield [bot.PullCountParser.LAST_MONTH]
+            for _ in range(10):
+                yield [pick_any(), pick_any()]
 
-        # good dates
-        for _ in range(100):
-            start_date = None if random.random() < 0.3 else pick_any()
-            if start_date is None:
-                end_date = None if random.random() < 0.7 else "lastmonth"
-            else:
-                end_date = None if random.random() < 0.5 else pick_any()
+            yield ["1900-01-01", "2000-01-01"]
 
-            if None not in (start_date, end_date) and start_date > end_date:
-                start_date, end_date = end_date, start_date
+        for args in args_maker():
+            # tested with test__date_range
+            start, end = bot.PullCountParser.parse(args)
 
             msg = make_message()
-            args = [_ for _ in (start_date, end_date) if _ is not None]
             await client.count_pulls(msg, args)
-            assert msg.kwargs()
             cnt = int(msg.kwargs()["content"].split(" ")[0])
 
-            start, end = client.parse_count_range(start_date, end_date)
             merged = [
                 _
                 for _ in merged_only if
@@ -100,17 +98,22 @@ class TestCount:
                     client.title_regex.match(_["title"])
                 )
             ]
-            assert len(merged) == cnt, (", ".join(_["merged_at"] for _ in merged), str(start), str(end))
+            assert len(merged) == cnt, (", ".join(_["merged_at"] for _ in merged), start, end)
 
-        # gibberish dates
-        for start, end in (
-            ("poor", "data"),
-            (None, "firstmonth"),
-            (None, "2020-01-01"),
-        ):
-            msg = make_message()
-            await client.count_pulls(msg, [start, end])
-            assert msg.kwargs()["content"] == bot.codewrap(textwrap.dedent(bot.Client.count_pulls.__doc__))
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["blah"],
+            [bot.PullCountParser.LAST_MONTH, bot.PullCountParser.LAST_MONTH],
+            ["nonsense", "2020-01-01"],
+            ["2020000+123-3", "2000-02-01"],
+            ["2020-01-01", "2020-01-02", "2020-01-03"],
+        ]
+    )
+    async def test__bad_count(self, client, make_message, args):
+        msg = make_message()
+        await client.count_pulls(msg, args)
+        assert msg.kwargs()["content"] == bot.codewrap(textwrap.dedent(bot.Client.count_pulls.__doc__))
 
     async def test__report_status(self, client, make_message):
         msg = make_message()

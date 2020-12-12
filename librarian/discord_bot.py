@@ -66,6 +66,39 @@ def codewrap(obj):
     return "\n".join(inner())
 
 
+class PullCountParser:
+    LAST_MONTH = "lastmonth"
+
+    @classmethod
+    def today_end(cls):
+        return arrow.get().ceil("day")
+
+    @classmethod
+    def last_month_end(cls):
+        today = cls.today_end()
+        return today.shift(months=-1).ceil("month")
+
+    @classmethod
+    def parse(cls, args):
+        if not args:
+            end_date = cls.today_end()
+            return end_date.floor("month"), end_date
+
+        if len(args) == 1 and args[0] == cls.LAST_MONTH:
+            end_date = cls.last_month_end()
+            return end_date.floor("month"), end_date
+
+        if len(args) == 2:
+            start_date = arrow.get(args[0])
+            end_date = arrow.get(args[1])
+            if start_date > end_date:
+                start_date, end_date = end_date, start_date
+
+            return start_date.floor("day"), end_date.ceil("day")
+
+        raise ValueError(f"Incorrect arguments {args}")
+
+
 class Client(discord.Client):
     def __init__(
         self, *args, github=None, storage=None, assignee_login=None, title_regex=None,
@@ -134,26 +167,6 @@ class Client(discord.Client):
         async with message.channel.typing():
             await self.handlers[command](message, args)
 
-    @staticmethod
-    def parse_count_range(start_date, end_date):
-        today = arrow.Arrow.utcnow().floor("day")
-
-        if start_date is None:
-            if end_date is None:
-                return today.floor("month"), today.ceil("day")
-
-            if end_date == "lastmonth":
-                first_day = today.shift(months=-1).floor("month")
-                return first_day, first_day.ceil("month")
-
-            raise ValueError("Logic error: can't use end_date without start_date")
-
-        if end_date is None:
-            start_date = arrow.get(start_date).floor("month")
-            return start_date, start_date.ceil("month")
-
-        return arrow.get(start_date).floor("day"), arrow.get(end_date).ceil("day")
-
     async def count_pulls(self, message: discord.Message, args):
         """
         pull requests merged within a time span
@@ -163,18 +176,8 @@ class Client(discord.Client):
         .count <from> <to>: use two dates, for example, 2020-08-30 and 2020-09-30
         """
 
-        if not args:
-            start_date, end_date = None, None
-        elif len(args) == 1:
-            if args[0] == "lastmonth":
-                start_date, end_date = [None, args[0]]
-            else:
-                start_date, end_date = [args[0], None]
-        else:
-            start_date, end_date = args[:2]
-
         try:
-            start_date, end_date = self.parse_count_range(start_date, end_date)
+            start_date, end_date = PullCountParser.parse(args)
         except ValueError:
             return await self.print_help(message, ".count")
 

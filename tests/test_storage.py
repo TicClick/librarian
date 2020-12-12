@@ -43,14 +43,15 @@ class TestPulls:
             v = getattr(pull, k)
             original_v = payload[k]
             if k in pull.DATETIME_KEYS:
-                v = arrow.get(v).replace(microsecond=0)
-                original_v = arrow.get(original_v).replace(microsecond=0)
+                v = arrow.get(v).floor("second")
+                original_v = arrow.get(original_v).floor("second")
 
             assert v == original_v
 
         for k in set(pull.NESTED_KEYS) - blacklist:
             assert getattr(pull, k) == pull.read_nested(payload, k)
 
+    @pytest.mark.freeze_time
     def test__obj(self, existing_pulls, repo):
         for p in existing_pulls:
             pull = stg.Pull(p)
