@@ -40,7 +40,7 @@ jobs:
           WHERE: ${{secrets.DEPLOY_SERVER_AND_USER}}
           PASS: ${{secrets.SSH_PASSPHRASE}}
         run: |
-          SSH_ASKPASS=~/echo.sh ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa "$WHERE" "[ -e librarian ] || git clone $REPOSITORY" <<< "$PASS"
+          ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa "$WHERE" "[ -e librarian ] || git clone $REPOSITORY"
           eval $( SSH_ASKPASS=~/echo.sh $SSSH "cd librarian && git fetch && git checkout tags/v1.3" )
           eval $( SSH_ASKPASS=~/echo.sh $SSSH "pkill -INT -f librarian.main && tmux kill-session -t librarian" <<< "$PASS" )
           eval $( SSH_ASKPASS=~/echo.sh $SSSH "cd librarian && make setup && tmux new -d -s librarian 'make run'" <<< "$PASS" )
