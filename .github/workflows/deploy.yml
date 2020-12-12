@@ -37,7 +37,7 @@ jobs:
         shell: bash
         env:
           REPOSITORY: https://github.com/TicClick/librarian.git
-          SSH_SHORTCUT: SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa <<< ${{secrets.SSH_PASSPHRASE}} ${{secrets.SSH_USER}}@${{secrets.DEPLOY_SERVER}}
+          SSH_SHORTCUT: SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa ${{secrets.DEPLOY_USER}}@${{secrets.DEPLOY_SERVER}} <<< ${{secrets.SSH_PASSPHRASE}}
         run: |
           "$SSH_SHORTCUT" "[ -e librarian ] || git clone $REPOSITORY"
           "$SSH_SHORTCUT" "pkill -INT -f librarian.main && tmux kill-session -t librarian"
