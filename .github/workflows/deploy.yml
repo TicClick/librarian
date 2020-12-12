@@ -20,6 +20,7 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: setup ssh
+        shell: bash
         run: |
           echo 'read SECRET; echo "$SECRET"' >> ~/echo.sh && chmod +x ~/echo.sh
 
@@ -30,6 +31,12 @@ jobs:
           ssh-keyscan -H ${{secrets.DEPLOY_SERVER}} > ~/.ssh/known_hosts
           SSH_ASKPASS=~/echo.sh ssh-add ~/.ssh/id_rsa <<< ${{secrets.SSH_PASSPHRASE}}
 
-      - name: test stuff
+      - name: checkout and run
+        shell: bash
+        env:
+          DESTINATION: ${{secrets.SSH_USER}}@${{secrets.DEPLOY_SERVER}}
+          REPOSITORY: https://github.com/TicClick/librarian.git
         run: |
-          ssh ${{secrets.DEPLOY_SERVER}} "pwd"
+          ssh "$DESTINATION" "[ -e librarian ] || git clone $REPOSITORY"
+          ssh "$DESTINATION" "pkill -INT -f librarian.main && tmux kill-session -t librarian"
+          ssh "$DESTINATION" "cd librarian && make setup && tmux new -d -s librarian 'make run'"
