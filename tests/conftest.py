@@ -141,3 +141,24 @@ def client(mock_github, storage, repo, gh_token, regex):
         storage=storage,
         title_regex=regex,
     )
+
+
+@pytest.fixture
+def make_context(client, mocker):
+    def inner():
+        msg = mocker.Mock()
+        msg.configure_mock(**{
+            "channel.send": mocker.AsyncMock(),
+        })
+
+        ctx = mocker.Mock()
+        ctx.configure_mock(**{
+            "bot": client,
+            "message": msg,
+            "send_help": mocker.AsyncMock(),
+            "args": lambda: msg.channel.send.call_args.args,
+            "kwargs": lambda: msg.channel.send.call_args.kwargs,
+        })
+        return ctx
+
+    return inner

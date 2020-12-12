@@ -1,5 +1,4 @@
 import random
-import textwrap
 
 import arrow
 import pytest
@@ -9,20 +8,6 @@ import librarian.discord_bot as bot
 
 def to_arrow(dt=None):
     return arrow.get(dt).floor("day")
-
-
-@pytest.fixture
-def make_message(mocker):
-    def inner():
-        msg = mocker.Mock()
-        msg.configure_mock(**{
-            "channel.send": mocker.AsyncMock(),
-            "args": lambda: msg.channel.send.call_args.args,
-            "kwargs": lambda: msg.channel.send.call_args.kwargs,
-        })
-        return msg
-
-    return inner
 
 
 class TestCount:
@@ -65,8 +50,10 @@ class TestCount:
                 assert start == parsed_start
                 assert end == parsed_end
 
+
+class TestDiscordCommands:
     @pytest.mark.freeze_time
-    async def test__count(self, client, storage, existing_pulls, make_message):
+    async def test__count(self, client, storage, existing_pulls, make_context):
         storage.pulls.save_many_from_payload(existing_pulls)
         merged_only = [_ for _ in existing_pulls if _["merged"]]
 
@@ -86,9 +73,9 @@ class TestCount:
             # tested with test__date_range
             start, end = bot.PullCountParser.parse(args)
 
-            msg = make_message()
-            await client.count_pulls(msg, args)
-            cnt = int(msg.kwargs()["content"].split(" ")[0])
+            ctx = make_context()
+            await bot.count_pulls(ctx, *args)
+            cnt = int(ctx.kwargs()["content"].split(" ")[0])
 
             merged = [
                 _
@@ -110,15 +97,15 @@ class TestCount:
             ["2020-01-01", "2020-01-02", "2020-01-03"],
         ]
     )
-    async def test__bad_count(self, client, make_message, args):
-        msg = make_message()
-        await client.count_pulls(msg, args)
-        assert msg.kwargs()["content"] == bot.codewrap(textwrap.dedent(bot.Client.count_pulls.__doc__))
+    async def test__bad_count(self, client, make_context, args):
+        ctx = make_context()
+        await bot.count_pulls(ctx, *args)
+        assert ctx.send_help.call_args.args[0] == "count"
 
-    async def test__report_status(self, client, make_message):
-        msg = make_message()
-        await client.report_status(msg, [])
-        assert msg.kwargs()["content"]
+    async def test__report_status(self, client, make_context):
+        ctx = make_context()
+        await bot.report_status(ctx)
+        assert ctx.kwargs()["content"]
 
     @pytest.mark.parametrize(
         ["cmdline", "rc", "out"],
@@ -140,10 +127,10 @@ class TestCount:
             (["/fail"], None),
         ]
     )
-    async def test__run_and_reply(self, client, make_message, cmdline, success):
-        message = make_message()
-        await client.run_and_reply(message, cmdline)
-        content = message.kwargs()["content"]
+    async def test__run_and_reply(self, client, make_context, cmdline, success):
+        ctx = make_context()
+        await client.run_and_reply(ctx.message, cmdline)
+        content = ctx.kwargs()["content"]
 
         if success is None:
             assert "Failed to execute" in content
@@ -153,8 +140,8 @@ class TestCount:
             else:
                 assert "has died with return code" in content
 
-    async def test__show_disk_status(self, client, make_message):
-        message = make_message()
-        await client.show_disk_status(message, None)
-        content = message.kwargs()["content"]
+    async def test__show_disk_status(self, client, make_context):
+        ctx = make_context()
+        await bot.show_disk_status(ctx)
+        content = ctx.kwargs()["content"]
         assert "librarian@librarian" in content and "/bin/df -Ph /" in content

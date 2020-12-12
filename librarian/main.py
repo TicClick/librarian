@@ -30,7 +30,7 @@ def setup_logging(source_dir, logging_config, loggers):
         logger.setLevel(getattr(logging, logging_config["level"]))
 
 
-def configure_bot():
+def configure_client():
     source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
     config_path = os.path.join(source_dir, "config/config.yaml")
     with open(config_path, "r") as fd:
@@ -50,7 +50,7 @@ def configure_bot():
     storage_path = os.path.join(source_dir, config["storage"]["path"])
     db = storage.Storage(storage_path)
 
-    bot = discord_bot.Client(
+    client = discord_bot.Client(
         github=github_api,
         storage=db,
         owner_id=config["discord"]["owner_id"],
@@ -61,31 +61,33 @@ def configure_bot():
         store_in_pins=config["discord"]["store_in_pins"],
     )
 
-    return bot, config
+    client.setup()
+
+    return client, config
 
 
-def run_bot(bot, config):
+def run_client(client, config):
     async def start():
         tasks = list(map(
             asyncio.create_task,
-            bot.start_routines()
+            client.start_routines()
         ))
         tasks.append(asyncio.create_task(
-            bot.start(config["discord"]["token"])
+            client.start(config["discord"]["token"])
         ))
         await asyncio.gather(*tasks)
 
     try:
-        logger.debug("Bot started")
-        bot.loop.run_until_complete(start())
+        logger.debug("Client started")
+        client.loop.run_until_complete(start())
     except KeyboardInterrupt:
         logger.debug("Shutdown started")
-        asyncio.new_event_loop().run_until_complete(bot.shutdown())
+        asyncio.new_event_loop().run_until_complete(client.shutdown())
         logger.debug("Shutdown complete")
 
 
 def main():
-    run_bot(*configure_bot())
+    run_client(*configure_client())
 
 
 if __name__ == "__main__":
