@@ -32,14 +32,13 @@ jobs:
           sudo chmod 0600 ~/.ssh/id_rsa
 
           ssh-keyscan -H ${{secrets.DEPLOY_SERVER}} > ~/.ssh/known_hosts
-          SSH_ASKPASS=~/echo.sh ssh-add ~/.ssh/id_rsa <<< ${{secrets.SSH_PASSPHRASE}}
 
       - name: checkout and run
         shell: bash
         env:
-          DESTINATION: ${{secrets.SSH_USER}}@${{secrets.DEPLOY_SERVER}}
           REPOSITORY: https://github.com/TicClick/librarian.git
+          SSH_SHORTCUT: SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa <<< ${{secrets.SSH_PASSPHRASE}} ${{secrets.SSH_USER}}@${{secrets.DEPLOY_SERVER}}
         run: |
-          ssh "$DESTINATION" "[ -e librarian ] || git clone $REPOSITORY"
-          ssh "$DESTINATION" "pkill -INT -f librarian.main && tmux kill-session -t librarian"
-          ssh "$DESTINATION" "cd librarian && make setup && tmux new -d -s librarian 'make run'"
+          "$SSH_SHORTCUT" "[ -e librarian ] || git clone $REPOSITORY"
+          "$SSH_SHORTCUT" "pkill -INT -f librarian.main && tmux kill-session -t librarian"
+          "$SSH_SHORTCUT" "cd librarian && make setup && tmux new -d -s librarian 'make run'"
