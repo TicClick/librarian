@@ -38,9 +38,9 @@ jobs:
           REPOSITORY: https://github.com/TicClick/librarian.git
           WHERE: ${{secrets.DEPLOY_USER}}@${{secrets.DEPLOY_SERVER}}
           PASS: ${{secrets.SSH_PASSPHRASE}}
-          SSSH: SSH_ASKPASS=~/echo.sh ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa ${{secrets.DEPLOY_USER}}@${{secrets.DEPLOY_SERVER}}
+          SSSH: ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa ${{secrets.DEPLOY_USER}}@${{secrets.DEPLOY_SERVER}}
         run: |
-          eval $( $SSSH "[ -e librarian ] || git clone $REPOSITORY" <<< "$PASS" )
-          eval $( $SSSH "cd librarian && git fetch && git checkout tags/v1.3" )
-          eval $( $SSSH "pkill -INT -f librarian.main && tmux kill-session -t librarian" <<< "$PASS" )
-          eval $( $SSSH "cd librarian && make setup && tmux new -d -s librarian 'make run'" <<< "$PASS" )
+          eval $( SSH_ASKPASS=~/echo.sh $SSSH "[ -e librarian ] || git clone $REPOSITORY" <<< "$PASS" )
+          eval $( SSH_ASKPASS=~/echo.sh $SSSH "cd librarian && git fetch && git checkout tags/v1.3" )
+          eval $( SSH_ASKPASS=~/echo.sh $SSSH "pkill -INT -f librarian.main && tmux kill-session -t librarian" <<< "$PASS" )
+          eval $( SSH_ASKPASS=~/echo.sh $SSSH "cd librarian && make setup && tmux new -d -s librarian 'make run'" <<< "$PASS" )
