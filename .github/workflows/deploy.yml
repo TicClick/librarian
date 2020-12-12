@@ -1,0 +1,43 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Deploy
+
+# Controls when the action will run. 
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: setup ssh
+        shell: bash
+        run: |
+          echo 'read SECRET; echo "$SECRET"' > ~/echo.sh && chmod +x ~/echo.sh
+
+          mkdir -p ~/.ssh
+          sudo chmod 0700 ~/.ssh
+          echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
+          sudo chmod 0600 ~/.ssh/id_rsa
+
+          ssh-keyscan -H ${{secrets.DEPLOY_HOSTNAME}} > ~/.ssh/known_hosts
+
+      - name: checkout and run
+        shell: bash
+        env:
+          REPOSITORY: https://github.com/TicClick/librarian.git
+          WHERE: ${{secrets.DEPLOY_SERVER_AND_USER}}
+          PASS: ${{secrets.SSH_PASSPHRASE}}
+        run: |
+          ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa "$WHERE" "
+            [ -e librarian ] || git clone $REPOSITORY
+            cd librarian
+            pkill -INT -f librarian.main && tmux kill-session -t librarian
+            git fetch && git checkout 'tags/$GITHUB_REF'
+            
+            # FIXME: this will fail if no config is supplied. TODO: put in secrets?
+            make setup && tmux new -d -s librarian 'make run'
+          "
