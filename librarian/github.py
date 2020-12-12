@@ -52,6 +52,7 @@ class GitHub(object):
         return aiohttp.ClientSession(headers=self.make_default_headers(self.__token))
 
     async def call_method(self, path, query=None, data=None, session=None, method="get"):
+        inner_session = session is None
         if session is None:
             session = self.make_session()
 
@@ -66,6 +67,8 @@ class GitHub(object):
                 return await result.json()
             finally:
                 self.ratelimit.update(result.headers)
+                if inner_session:
+                    await session.close()
 
     async def fetch(self, path, query=None, session=None):
         return await self.call_method(path=path, query=query, session=session, method="get")

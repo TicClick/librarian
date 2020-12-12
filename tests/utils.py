@@ -4,6 +4,7 @@ import json
 import random
 
 from aiohttp import web
+from aiohttp import test_utils
 import arrow
 
 import librarian.github
@@ -88,7 +89,15 @@ def make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, post_rou
             headers=librarian.github.GitHub.make_default_headers(gh_token)
         )
     )
-    monkeypatch.setattr(librarian.github.GitHub, "make_session", lambda _: api.session)
+
+    def session_maker(_):
+        return test_utils.TestClient(
+            api.server,
+            loop=loop,
+            headers=librarian.github.GitHub.make_default_headers(gh_token)
+        ).session
+
+    monkeypatch.setattr(librarian.github.GitHub, "make_session", session_maker)
     monkeypatch.setattr(librarian.github.GitHub, "BASE_URL", api.make_url(""))
 
     return app
