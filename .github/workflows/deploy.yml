@@ -25,10 +25,10 @@ jobs:
       - name: setup ssh
         shell: bash
         run: |
-          echo 'read SECRET; echo "$SECRET"' >> ~/echo.sh && chmod +x ~/echo.sh
+          echo 'read SECRET; echo "$SECRET"' > ~/echo.sh && chmod +x ~/echo.sh
 
           mkdir -p ~/.ssh
-          echo ${{secrets.SSH_PRIVATE_KEY}} > ~/.ssh/id_rsa
+          echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
           sudo chmod 0600 ~/.ssh/id_rsa
 
           ssh-keyscan -H ${{secrets.DEPLOY_SERVER}} > ~/.ssh/known_hosts
