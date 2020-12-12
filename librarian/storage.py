@@ -77,7 +77,8 @@ class Pull(Base):
         return f"https://github.com/{repo}/pull/{self.number}"
 
     def rich_repr(self, repo):
-        return "[{title}]({url}) by {author} ({merged_at})".format(
+        return "#{no} [{title}]({url}) by {author} ({merged_at})".format(
+            no=self.number,
             title=self.title,
             url=self.url_for(repo),
             author=self.user_login,

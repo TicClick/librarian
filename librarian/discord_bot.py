@@ -52,6 +52,23 @@ ICONS = {
 }
 
 
+class HelpCommand(commands.DefaultHelpCommand):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        def interceptor(f):
+            def add_line(line, *a, **kw):
+                if self.no_category in line:
+                    return
+                return f(line, *a, **kw)
+            return add_line
+
+        self.paginator.add_line = interceptor(self.paginator.add_line)
+
+    def get_ending_note(self, *_):
+        pass
+
+
 class PullCountParser:
     LAST_MONTH = "lastmonth"
 
@@ -102,7 +119,7 @@ class Client(commands.Bot):
         self.title_regex = re.compile(title_regex)
         self.store_in_pins = store_in_pins
 
-        super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)
+        super().__init__(*args, command_prefix=self.COMMAND_PREFIX, help_command=HelpCommand(), **kwargs)
 
         self.routines = {
             r.name: r
@@ -117,15 +134,12 @@ class Client(commands.Bot):
         self.add_command(report_status)
         self.add_command(show_disk_status)
 
-        help_cmd = self.get_command("help")
-        help_cmd.help = help_cmd.help.lower()
-
     def start_routines(self):
         logger.debug("Starting routines: %s", ", ".join(self.routines.keys()))
         return [r.loop() for r in self.routines.values()]
 
     async def shutdown(self):
-        logger.info("Shutting down the bot")
+        logger.info("Shutting the client down")
         for r in self.routines.values():
             try:
                 logger.info("Waiting on %s", r.name)
@@ -251,9 +265,9 @@ async def count_pulls(ctx: commands.Context, *args):
     """
     pull requests merged within a time span
 
-    .count: within the current month
-    .count <month>: use lastmonth, or date like 2020-09
-    .count <from> <to>: use two dates, for example, 2020-08-30 and 2020-09-30
+    .count: current month
+    .count lastmonth: the last month
+    .count <from> <to>: anything between these two. example: 2020-08 2020-10-01
     """
 
     try:
