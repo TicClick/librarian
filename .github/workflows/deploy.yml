@@ -19,7 +19,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      # - uses: actions/checkout@v2
 
       # Runs a set of commands using the runners shell
       - name: setup ssh
@@ -32,13 +32,12 @@ jobs:
           sudo chmod 0600 ~/.ssh/id_rsa
 
           ssh-keyscan -H ${{secrets.DEPLOY_SERVER}} > ~/.ssh/known_hosts
-
       - name: checkout and run
         shell: bash
         env:
           REPOSITORY: https://github.com/TicClick/librarian.git
-          SSH_SHORTCUT: SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa ${{secrets.DEPLOY_USER}}@${{secrets.DEPLOY_SERVER}} <<< ${{secrets.SSH_PASSPHRASE}}
+          WHERE: ${{secrets.DEPLOY_USER}}@${{secrets.DEPLOY_SERVER}}
         run: |
-          "$SSH_SHORTCUT" "[ -e librarian ] || git clone $REPOSITORY"
-          "$SSH_SHORTCUT" "pkill -INT -f librarian.main && tmux kill-session -t librarian"
-          "$SSH_SHORTCUT" "cd librarian && make setup && tmux new -d -s librarian 'make run'"
+          SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa "$WHERE" "[ -e librarian ] || git clone $REPOSITORY" <<< ${{secrets.SSH_PASSPHRASE}}
+          SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa "$WHERE" "pkill -INT -f librarian.main && tmux kill-session -t librarian" <<< ${{secrets.SSH_PASSPHRASE}}
+          SSH_ASKPASS=~/echo.sh ssh -i ~/.ssh/id_rsa "$WHERE" "cd librarian && make setup && tmux new -d -s librarian 'make run'" <<< ${{secrets.SSH_PASSPHRASE}}
