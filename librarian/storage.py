@@ -160,50 +160,65 @@ class Helper:
         self.session_scope = storage.session_scope
 
 
+def optional_session(f):
+    def inner(self, *args, **kwargs):
+        session = kwargs.pop("s", None)
+        if session is not None:
+            return f(self, *args, s=session, **kwargs)
+
+        with self.session_scope() as s:
+            return f(self, *args, s=s, **kwargs)
+
+    return inner
+
+
 class PullHelper(Helper):
-    def save_from_payload(self, payload, insert=True):
-        self.save(Pull(payload), insert=insert)
+    @optional_session
+    def save_from_payload(self, payload, s, insert=True):
+        self.save(Pull(payload), s=s, insert=insert)
 
-    def save(self, pull, insert=True):
-        with self.session_scope() as s:
-            if s.query(Pull).filter(Pull.number == pull.number).count():
-                if insert:
-                    return
-                s.query(Pull).filter(Pull.number == pull.number).update(pull.as_dict(id=False))
-            else:
-                s.add(pull)
+    @optional_session
+    def save(self, pull, s, insert=True):
+        if s.query(Pull).filter(Pull.number == pull.number).count():
+            if insert:
+                return
+            s.query(Pull).filter(Pull.number == pull.number).update(pull.as_dict(id=False))
+        else:
+            s.add(pull)
 
-    def save_many_from_payload(self, pulls):
+    @optional_session
+    def save_many_from_payload(self, pulls, s):
         pulls = {_["number"]: _ for _ in pulls}
-        with self.session_scope() as s:
-            existing = s.query(Pull).filter(Pull.number.in_(pulls)).all()
-            for pull in existing:
-                pull.update(pulls[pull.number])
 
-            s.add_all(existing)
-            s.add_all([
-                Pull(p)
-                for num, p in pulls.items() if
-                num not in set(_.number for _ in existing)
-            ])
+        existing = s.query(Pull).filter(Pull.number.in_(pulls)).all()
+        for pull in existing:
+            pull.update(pulls[pull.number])
+
+        s.add_all(existing)
+        s.add_all([
+            Pull(p)
+            for num, p in pulls.items() if
+            num not in set(_.number for _ in existing)
+        ])
 
         return existing
 
-    def by_number(self, pull_number):
-        with self.session_scope() as s:
-            return s.query(Pull).filter(Pull.number == pull_number).first()
+    @optional_session
+    def by_number(self, pull_number, s):
+        return s.query(Pull).filter(Pull.number == pull_number).first()
 
-    def remove(self, pull_number):
-        with self.session_scope() as s:
-            s.query(Pull).filter(Pull.number == pull_number).delete()
+    @optional_session
+    def remove(self, pull_number, s):
+        s.query(Pull).filter(Pull.number == pull_number).delete()
 
-    def count_merged(self, start_date, end_date):
-        with self.session_scope() as s:
-            return s.query(Pull).filter(
-                Pull.merged == 1,
-                Pull.merged_at.between(start_date, end_date)
-            ).all()
+    @optional_session
+    def count_merged(self, start_date, end_date, s):
+        return s.query(Pull).filter(
+            Pull.merged == 1,
+            Pull.merged_at.between(start_date, end_date)
+        ).all()
 
+    @optional_session
     def active_pulls(self, s):
         return s.query(Pull).filter(Pull.state != "closed").all()
 

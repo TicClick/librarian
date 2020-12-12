@@ -203,7 +203,7 @@ class MonitorGithubPulls(Routine):
         with self.storage.pulls.session_scope() as db_session:
             cached_active_pulls = {
                 _.number: _
-                for _ in self.storage.pulls.active_pulls(db_session)
+                for _ in self.storage.pulls.active_pulls(s=db_session)
             }
             logger.info(
                 "%s: DB reports %d active pulls: %s",
@@ -264,7 +264,7 @@ class MonitorGithubPulls(Routine):
                 "%s: saving %d pulls to DB: %s",
                 self.name, len(to_save), sorted([_["number"] for _ in to_save])
             )
-            saved = self.storage.pulls.save_many_from_payload(to_save)
+            saved = self.storage.pulls.save_many_from_payload(to_save, s=db_session)
             saved_numbers = {_.number for _ in saved}
 
         def worth_updating():

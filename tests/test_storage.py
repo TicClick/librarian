@@ -83,31 +83,32 @@ class TestPulls:
         count = 0
         storage.pulls.save = mocker.Mock(side_effect=storage.pulls.save)
         mocker.patch.object(stg.PullHelper, "save", side_effect=stg.PullHelper.save)
-        with storage.session_scope() as s:
-            add_object = mocker.patch.object(s, "add", side_effect=s.add)
+        with storage.session_scope() as session:
+            add_object = mocker.patch.object(session, "add", side_effect=session.add)
             for i, p in enumerate(existing_pulls):
-                storage.pulls.save_from_payload(p)
+                storage.pulls.save_from_payload(p, s=session)
                 storage.pulls.save.assert_called()
                 count += 1
 
-                assert s.query(stg.Pull).filter(stg.Pull.number == p["number"]).count() == 1
-                assert storage.pulls.by_number(p["number"])
+                session.commit()
+                assert session.query(stg.Pull).filter(stg.Pull.number == p["number"]).count() == 1
+                assert storage.pulls.by_number(p["number"], s=session)
 
                 duplicate = dict(p)
                 duplicate["title"] = "title-has-changed"
 
                 add_object.reset_mock()
-                storage.pulls.save_from_payload(duplicate, insert=True)
+                storage.pulls.save_from_payload(duplicate, s=session, insert=True)
                 add_object.assert_not_called()
 
-                storage.pulls.save_from_payload(duplicate, insert=False)
-                updated_pull = s.query(stg.Pull).filter(stg.Pull.number == p["number"]).first()
+                storage.pulls.save_from_payload(duplicate, s=session, insert=False)
+
+                updated_pull = session.query(stg.Pull).filter(stg.Pull.number == p["number"]).first()
                 assert updated_pull.title == duplicate["title"]
 
         with storage.session_scope() as s:
             assert s.query(stg.Pull).filter().count() == count
-
-        assert storage.pulls.by_number(1234567) is None
+            assert storage.pulls.by_number(1234567, s=session) is None
 
     def test__save_many(self, storage, existing_pulls):
         n = len(existing_pulls)
@@ -182,7 +183,7 @@ class TestPulls:
         storage.pulls.save_many_from_payload(existing_pulls)
         with storage.session_scope() as s:
             for stored_number, existing_number in zip(
-                sorted(_.number for _ in storage.pulls.active_pulls(s)),
+                sorted(_.number for _ in storage.pulls.active_pulls(s=s)),
                 sorted(_["number"] for _ in existing_pulls if _["state"] != "closed")
             ):
                 assert stored_number == existing_number
