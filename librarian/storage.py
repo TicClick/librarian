@@ -76,6 +76,14 @@ class Pull(Base):
     def url_for(self, repo):
         return f"https://github.com/{repo}/pull/{self.number}"
 
+    def rich_repr(self, repo):
+        return "[{title}]({url}) by {author} ({merged_at})".format(
+            title=self.title,
+            url=self.url_for(repo),
+            author=self.user_login,
+            merged_at=self.merged_at.date(),
+        )
+
     @property
     def real_state(self):
         if self.merged:

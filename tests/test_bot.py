@@ -75,7 +75,15 @@ class TestDiscordCommands:
 
             ctx = make_context()
             await bot.count_pulls(ctx, *args)
-            cnt = int(ctx.kwargs()["content"].split(" ")[0])
+
+            for i, call in enumerate(ctx.message.channel.send.call_args_list):
+                if i == 0:
+                    assert call.kwargs["content"]
+                if "embed" in call.kwargs:
+                    assert call.kwargs["embed"].description
+
+            first_message = ctx.message.channel.send.call_args_list[0].kwargs["content"]
+            cnt = int(first_message.split(" ")[0])
 
             merged = [
                 _

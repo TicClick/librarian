@@ -264,38 +264,29 @@ async def count_pulls(ctx: commands.Context, *args):
     pulls = ctx.bot.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
     pulls = sorted(
         filter(lambda p: ctx.bot.title_regex.match(p.title), pulls),
-        key=lambda p: p.number
+        key=lambda p: p.merged_at
     )
     logger.debug(
-        "Pulls in [%s, %s): %s",
+        "Interesting pulls in [%s, %s): %s",
         start_date, end_date, " ".join(str(_.number) for _ in pulls)
     )
 
-    msg = "{count} pulls merged during [{start_date}, {end_date}]".format(
-        count=len(pulls),
-        start_date=start_date.date(),
-        end_date=end_date.date()
-    )
+    date_range = "[{}, {}]".format(start_date.date(), end_date.date())
+    msg = "{} pulls merged during {}".format(len(pulls), date_range)
 
     if not pulls:
         return await ctx.message.channel.send(content=msg)
 
-    def pull_repr(pull):
-        return "`{merged_at}`: [{title}]({url}) by {author}".format(
-            title=pull.title,
-            url=pull.url_for(ctx.bot.github.repo),
-            author=pull.user_login,
-            merged_at=pull.merged_at.date(),
-        )
+    def transform_pulls():
+        for pull in pulls:
+            yield "- {}".format(pull.rich_repr(ctx.bot.github.repo))
 
-    embed = discord.Embed(
-        description="\n".join((
-            "- {}".format(pull_repr(pull))
-            for pull in pulls
-        ))
-    )
-    embed.set_footer(text="{} total".format(len(pulls)))
-    return await ctx.message.channel.send(content=msg, embed=embed)
+    pages = list(utils.iterator(transform_pulls()))
+    for i, page in enumerate(pages):
+        embed = discord.Embed(description=page)
+        embed.set_footer(text=f"{i + 1}/{len(pages)}")
+        content = None if i else msg
+        await ctx.message.channel.send(content=content, embed=embed)
 
 
 @command(name="status")
