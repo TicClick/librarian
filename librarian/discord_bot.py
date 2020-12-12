@@ -315,20 +315,30 @@ class Client(discord.Client):
 
         except (Exception, BaseException):
             logger.exception("Failed to run %r", command)
-            return None
+            return None, None
 
-        return codewrap((
-            "librarian@librarian:~$ {}".format(" ".join(command)),
-            out.decode("utf-8")
-        ))
+        return proc.returncode, out.decode("utf-8")
 
     async def run_and_reply(self, message: discord.Message, command):
         command = list(map(str, command))
         logger.info("Running %r on behalf of %s #%s", command, message.author, message.author.id)
-        content = await self.run_command(command)
-        if content is None:
-            content = "Failed to execute `{}` (logged the error, though)".format(" ".join(command))
-        await message.channel.send(content=content)
+        rc, output = await self.run_command(command)
+        if rc is None:
+            return await message.channel.send(
+                content="Failed to execute `{}` (logged the error, though)".format(" ".join(command))
+            )
+
+        if rc:
+            return await message.channel.send(
+                content="`{}` has died with return code {}".format(" ".join(command), rc)
+            )
+
+        return await message.channel.send(
+            content=codewrap((
+                "librarian@librarian:~$ {}".format(" ".join(command)),
+                output
+            ))
+        )
 
     async def show_disk_status(self, message: discord.Message, args):
         """

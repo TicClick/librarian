@@ -119,3 +119,42 @@ class TestCount:
         msg = make_message()
         await client.report_status(msg, [])
         assert msg.kwargs()["content"]
+
+    @pytest.mark.parametrize(
+        ["cmdline", "rc", "out"],
+        [
+            (["/bin/echo", "-n", "test"], 0, "test"),
+            (["/usr/bin/false", "test"], 1, ""),
+            (["/fail"], None, None),
+        ]
+    )
+    async def test__run_command(self, client, cmdline, rc, out):
+        returncode, output = await client.run_command(cmdline)
+        assert rc == returncode and output == out
+
+    @pytest.mark.parametrize(
+        ["cmdline", "success"],
+        [
+            (["/bin/echo", "-n", "test"], True),
+            (["/usr/bin/false", "test"], False),
+            (["/fail"], None),
+        ]
+    )
+    async def test__run_and_reply(self, client, make_message, cmdline, success):
+        message = make_message()
+        await client.run_and_reply(message, cmdline)
+        content = message.kwargs()["content"]
+
+        if success is None:
+            assert "Failed to execute" in content
+        else:
+            if success:
+                assert "librarian@librarian" in content
+            else:
+                assert "has died with return code" in content
+
+    async def test__show_disk_status(self, client, make_message):
+        message = make_message()
+        await client.show_disk_status(message, None)
+        content = message.kwargs()["content"]
+        assert "librarian@librarian" in content and "/bin/df -Ph /" in content
