@@ -36,7 +36,7 @@ jobs:
             [ -e librarian ] || git clone $REPOSITORY
             cd librarian
             pkill -INT -f librarian.main && tmux kill-session -t librarian
-            git fetch && git checkout 'tags/$GITHUB_REF'
+            git fetch && git checkout '$GITHUB_REF'
             
             # FIXME: this will fail if no config is supplied. TODO: put in secrets?
             make setup && tmux new -d -s librarian 'make run'
