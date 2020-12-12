@@ -111,7 +111,7 @@ class TestDiscordCommands:
         ["cmdline", "rc", "out"],
         [
             (["/bin/echo", "-n", "test"], 0, "test"),
-            (["/usr/bin/false", "test"], 1, ""),
+            (["/bin/sh", "-c", "false", "test"], 1, ""),
             (["/fail"], None, None),
         ]
     )
@@ -123,7 +123,7 @@ class TestDiscordCommands:
         ["cmdline", "success"],
         [
             (["/bin/echo", "-n", "test"], True),
-            (["/usr/bin/false", "test"], False),
+            (["/bin/sh", "-c", "false", "test"], False),
             (["/fail"], None),
         ]
     )
