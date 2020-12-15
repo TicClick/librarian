@@ -16,8 +16,6 @@ jobs:
       - name: setup ssh
         shell: bash
         run: |
-          echo 'read SECRET; echo "$SECRET"' > ~/echo.sh && chmod +x ~/echo.sh
-
           mkdir -p ~/.ssh
           sudo chmod 0700 ~/.ssh
           echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
@@ -31,13 +29,12 @@ jobs:
           REPOSITORY: https://github.com/TicClick/librarian.git
           WHERE: ${{secrets.DEPLOY_SERVER_AND_USER}}
           PASS: ${{secrets.SSH_PASSPHRASE}}
+          PROJECT: librarian
         run: |
           ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa "$WHERE" "
-            [ -e librarian ] || git clone $REPOSITORY
-            cd librarian
-            pkill -INT -f librarian.main && tmux kill-session -t librarian
+            pkill -INT -f librarian.main && tmux kill-session -t '$PROJECT'
+            [ -e '$PROJECT' ] && rm -r '$PROJECT'
+            git clone $REPOSITORY '$PROJECT' && cd '$PROJECT'
             git fetch && git checkout '$GITHUB_REF'
-            
-            # FIXME: this will fail if no config is supplied. TODO: put in secrets?
-            make setup && tmux new -d -s librarian 'make run'
+            ./bin.sh setup && tmux new -d -s '$PROJECT' './bin.sh run --config ~/config.yaml'
           "
