@@ -36,6 +36,8 @@ class TestBasics:
 
 
 class TestPulls:
+    MAX_PULLS = 20
+
     def compare_pull(self, pull, payload, blacklist=None):
         blacklist = set(blacklist or [])
 
@@ -85,7 +87,9 @@ class TestPulls:
         mocker.patch.object(stg.PullHelper, "save", side_effect=stg.PullHelper.save)
         with storage.session_scope() as session:
             add_object = mocker.patch.object(session, "add", side_effect=session.add)
-            for i, p in enumerate(existing_pulls):
+            for i, p in enumerate(
+                random.sample(existing_pulls, self.MAX_PULLS)
+            ):
                 storage.pulls.save_from_payload(p, s=session)
                 storage.pulls.save.assert_called()
                 count += 1
