@@ -13,9 +13,12 @@ discord:
   review_role_id: 12345
   store_in_pins: true
 
+runtime:
+  dir: /home/username/discord-bot/runtime
+
 storage:
-  path: "runtime/osuwiki.db"
+  path: "{runtime}/osuwiki.db"
 
 logging:
-  file: "runtime/librarian.log"
+  file: "{runtime}/librarian.log"
   level: DEBUG
