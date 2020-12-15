@@ -135,11 +135,12 @@ def storage(dbpath):
 
 
 @pytest.fixture
-def client(mock_github, storage, repo, gh_token, regex):
+def client(mock_github, storage, repo, gh_token, regex, assignee_login):
     bot = librarian.discord.Client(
         github=librarian.github.GitHub(repo, gh_token),
         storage=storage,
         title_regex=regex,
+        assignee_login=assignee_login,
     )
     bot.setup()
     yield bot
@@ -164,3 +165,8 @@ def make_context(client, mocker):
         return ctx
 
     return inner
+
+
+@pytest.fixture
+def assignee_login():
+    return "assignee-login"

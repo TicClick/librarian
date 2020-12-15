@@ -1,90 +1,24 @@
-import abc
 import asyncio
 import itertools as it
 import logging
-import time
 
 import arrow
 import aiohttp.client_exceptions
+from discord.ext import tasks
 
 from librarian import storage
-
+from librarian.discord.cogs.background import base
 
 logger = logging.getLogger(__name__)
 
 
-class Routine(metaclass=abc.ABCMeta):
-    @abc.abstractproperty
-    def interval(self):
-        return 60
+class FetchNewPulls(base.BackgroundCog):
+    LAST_PULL = "last_pull"
+    SHORT_INTERVAL = 3
+    LONG_INTERVAL = 60
 
-    @property
-    def name(self):
-        return self.__class__.__name__
-
-    def __init__(self, discord):
-        self.discord = discord
-        self.github = discord.github
-        self.storage = discord.storage
-
-        self.stop_event = asyncio.Event()
-        self.active = False
-
-    async def continue_after_sleep(self, duration):
-        try:
-            if duration > 0:
-                await asyncio.wait_for(self.stop_event.wait(), duration)
-        except asyncio.TimeoutError:
-            pass
-        return self.stop_event.is_set()
-
-    async def loop(self):
-        sleep_for = 0
-        self.active = True
-        try:
-            while True:
-                if await self.continue_after_sleep(sleep_for):
-                    logger.info("%s: shutdown requested", self.name)
-                    return await self.shutdown()
-                    logger.info("%s: shutdown complete", self.name)
-
-                logger.info("%s: tick started", self.name)
-                now = time.time()
-                await self.run()
-
-                spent = time.time() - now
-                sleep_for = max(0, self.interval - spent)
-                logger.info(
-                    "%s: tick ended; spent %.2fs, will sleep for %.2fs",
-                    self.name, spent, sleep_for
-                )
-
-        except (Exception, BaseException):
-            logger.exception("%s: forcibly stopped:", self.name)
-
-        finally:
-            self.active = False
-
-    @abc.abstractmethod
-    async def shutdown(self):
-        pass
-
-    @abc.abstractmethod
-    async def run(self):
-        pass
-
-    @abc.abstractmethod
-    async def status(self):
-        pass
-
-
-class FetchGithubPulls(Routine):
-    interval = 3
-    slow_interval = 60
-    last_pull_field = "last_pull"
-
-    def __init__(self, discord):
-        super().__init__(discord)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.last_pull = None
 
     def fetched(self, pull_number):
@@ -92,9 +26,10 @@ class FetchGithubPulls(Routine):
             return False
         return pull_number <= self.last_pull
 
-    async def run(self):
+    @tasks.loop(seconds=SHORT_INTERVAL)
+    async def loop(self):
         if self.last_pull is None:
-            self.last_pull = self.storage.metadata.load_field(self.last_pull_field)
+            self.last_pull = self.storage.metadata.load_field(self.LAST_PULL)
             if self.last_pull is None:
                 self.last_pull = 1
 
@@ -111,14 +46,15 @@ class FetchGithubPulls(Routine):
                 self.last_pull += 1
 
             else:
-                logger.info("%s: no unknown pulls? setting interval to %d", self.name, self.slow_interval)
-                self.interval = self.slow_interval
+                logger.info("%s: no unknown pulls? setting interval to %d from now on", self.name, self.LONG_INTERVAL)
+                self.loop.change_interval(seconds=self.LONG_INTERVAL)
 
         except aiohttp.client_exceptions.ClientError as exc:
             logger.error("%s: failed to fetch pull #%s: %s", self.name, self.last_pull, exc)
 
+    @loop.after_loop
     async def shutdown(self):
-        self.storage.metadata.save_field(self.last_pull_field, self.last_pull)
+        self.storage.metadata.save_field(self.LAST_PULL, self.last_pull)
 
     async def status(self):
         return dict(
@@ -129,11 +65,12 @@ class FetchGithubPulls(Routine):
         )
 
 
-class MonitorGithubPulls(Routine):
-    interval = 60
+class MonitorPulls(base.BackgroundCog):
+    INTERVAL = 60
+    CUTOFF_PULL_NUMBER = 4450
 
-    def __init__(self, discord, assignee_login, title_regex):
-        super().__init__(discord)
+    def __init__(self, bot, assignee_login=None, title_regex=None, *args, **kwargs):
+        super().__init__(bot, *args, **kwargs)
         self.assignee_login = assignee_login
         self.title_regex = title_regex
 
@@ -144,7 +81,7 @@ class MonitorGithubPulls(Routine):
         messages = {
             pull.number: pull.discord_messages[0] if pull.discord_messages else None
             for pull in pulls if
-            pull.number > 4450  # the bot was started roughly after that PR's appearance
+            pull.number > self.CUTOFF_PULL_NUMBER
         }
         await self.update_messages(pulls, messages)
 
@@ -189,7 +126,8 @@ class MonitorGithubPulls(Routine):
             if isinstance(result, Exception):
                 logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
 
-    async def run(self):
+    @tasks.loop(seconds=INTERVAL)
+    async def loop(self):
         try:
             pulls = await self.github.pulls()
             logger.info(
@@ -211,11 +149,12 @@ class MonitorGithubPulls(Routine):
             )
 
         def open_pulls_numbers(cutoff_by_update=True):
+            fetcher = self.bot.get_cog(FetchNewPulls.__name__)
             for p in pulls:
                 pn = p["number"]
                 # new pulls should always be added from FetchGithubPulls, unless they are reopened
                 if pn not in cached_active_pulls:
-                    if self.discord.routines[FetchGithubPulls.__name__].fetched(pn):
+                    if fetcher.fetched(pn):
                         yield pn
                     continue
 
@@ -284,6 +223,3 @@ class MonitorGithubPulls(Routine):
 
     async def status(self):
         return {}
-
-    async def shutdown(self):
-        pass

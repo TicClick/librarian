@@ -4,8 +4,9 @@ import logging
 import discord
 from discord.ext import commands
 
-from librarian.discord.cogs import decorators
 from librarian.discord import formatters
+from librarian.discord.cogs import decorators
+from librarian.discord.cogs.background import base
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +18,11 @@ class System(commands.Cog):
         system information. probably only interesting to the bot owner
         """
 
-        async def routine_repr(r):
-            status = await r.status()
-            status_string = ", ".join(
-                "{}={}".format(k, v)
-                for k, v in sorted(status.items())
-            )
-            return "[{status}] {name}: {status_string}".format(
-                status=" OK " if r.active else "DEAD",
-                name=r.name,
-                status_string=status_string if status_string else "{}"
-            )
-
-        statuses = await asyncio.gather(*map(routine_repr, ctx.bot.routines.values()))
+        statuses = await asyncio.gather(*(
+            cog.status_repr()
+            for _, cog in sorted(ctx.bot.cogs.items())
+            if isinstance(cog, base.BackgroundCog)
+        ))
         return await ctx.message.channel.send(content=formatters.codewrap(statuses))
 
     async def run_command(self, command):

@@ -1,4 +1,3 @@
-import asyncio
 import itertools
 import logging
 import os
@@ -8,12 +7,13 @@ import yaml
 from librarian import (
     discord,
     github,
-    routine,
     storage,
 )
 
-
 logger = logging.getLogger(__name__)
+
+PADDING = 40
+PADDING_CHAR = "-"
 
 
 def setup_logging(source_dir, logging_config, loggers):
@@ -42,11 +42,10 @@ def configure_client():
     setup_logging(
         source_dir, config["logging"],
         itertools.chain(
-            (logger, github.logger, routine.logger),
-            discord.LOGGERS,
+            (logger, github.logger), discord.LOGGERS,
         )
     )
-    logger.info("%s Starting up %s", "-" * 10, "-" * 10)
+    logger.info(" Starting up ".center(PADDING, PADDING_CHAR))
 
     github_api = github.GitHub(
         token=config["github"]["token"],
@@ -73,23 +72,13 @@ def configure_client():
 
 
 def run_client(client, config):
-    async def start():
-        tasks = list(map(
-            asyncio.create_task,
-            client.start_routines()
-        ))
-        tasks.append(asyncio.create_task(
-            client.start(config["discord"]["token"])
-        ))
-        await asyncio.gather(*tasks)
-
     try:
         logger.debug("Client started")
-        client.loop.run_until_complete(start())
+        client.loop.run_until_complete(client.start(config["discord"]["token"]))
     except KeyboardInterrupt:
-        logger.debug("Shutdown started")
-        asyncio.new_event_loop().run_until_complete(client.shutdown())
-        logger.debug("Shutdown complete")
+        logger.debug("Shutdown")
+        client.loop.run_until_complete(client.close())
+        logger.debug(" Shutdown completed ".center(PADDING, PADDING_CHAR))
 
 
 def main():

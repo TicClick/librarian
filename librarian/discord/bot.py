@@ -6,10 +6,13 @@ import re
 import discord
 from discord.ext import commands
 
-from librarian import routine
 from librarian.discord.cogs import (
     pulls,
     system,
+)
+from librarian.discord.cogs.background import (
+    base,
+    github as github_cogs,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,37 +89,28 @@ class Client(commands.Bot):
         self.review_channel = review_channel
         self.review_role_id = review_role_id
         self.title_regex = re.compile(title_regex)
+        self.assignee_login = assignee_login
         self.store_in_pins = store_in_pins
 
         super().__init__(*args, command_prefix=self.COMMAND_PREFIX, help_command=HelpCommand(), **kwargs)
 
-        self.routines = {
-            r.name: r
-            for r in (
-                routine.FetchGithubPulls(self),
-                routine.MonitorGithubPulls(self, assignee_login, self.title_regex),
-            )
-        }
-
     def setup(self):
         self.add_cog(pulls.PullCounter())
         self.add_cog(system.System())
+        self.add_cog(github_cogs.FetchNewPulls(self))
+        self.add_cog(github_cogs.MonitorPulls(self, assignee_login=self.assignee_login, title_regex=self.title_regex))
 
-    def start_routines(self):
-        logger.debug("Starting routines: %s", ", ".join(self.routines.keys()))
-        return [r.loop() for r in self.routines.values()]
-
-    async def shutdown(self):
-        logger.info("Shutting the client down")
-        for r in self.routines.values():
-            try:
-                logger.info("Waiting on %s", r.name)
-                await asyncio.wait_for(r.shutdown(), self.KILL_TIMEOUT)
-            except asyncio.TimeoutError:
-                logger.error("%s has timed out during shutdown", r.name)
+    async def start_routines(self):
+        logger.debug("Starting cogs")
+        await asyncio.gather(*(
+            asyncio.create_task(cog.start())
+            for _, cog in sorted(self.cogs.items()) if
+            isinstance(cog, base.BackgroundCog)
+        ))
 
     async def on_ready(self):
-        logger.info("Logged in as %s #%s", self.user, self.user.id)
+        logger.info("Logged in as %s #%s, starting routines", self.user, self.user.id)
+        await self.start_routines()
 
     async def post_update(self, pull=None, channel_id=None, message_id=None):
         if isinstance(pull, int):
