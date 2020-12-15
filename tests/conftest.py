@@ -4,7 +4,7 @@ import random
 from aiohttp import web
 import pytest
 
-import librarian.discord_bot
+import librarian.discord
 import librarian.github
 import librarian.storage
 
@@ -136,11 +136,13 @@ def storage(dbpath):
 
 @pytest.fixture
 def client(mock_github, storage, repo, gh_token, regex):
-    yield librarian.discord_bot.Client(
+    bot = librarian.discord.Client(
         github=librarian.github.GitHub(repo, gh_token),
         storage=storage,
         title_regex=regex,
     )
+    bot.setup()
+    yield bot
 
 
 @pytest.fixture

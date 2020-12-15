@@ -1,13 +1,16 @@
 import asyncio
+import itertools
 import logging
 import os
 
 import yaml
 
-from librarian import github
-from librarian import discord_bot
-from librarian import routine
-from librarian import storage
+from librarian import (
+    discord,
+    github,
+    routine,
+    storage,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +41,10 @@ def configure_client():
 
     setup_logging(
         source_dir, config["logging"],
-        (logger, github.logger, discord_bot.logger, routine.logger)
+        itertools.chain(
+            (logger, github.logger, routine.logger),
+            discord.LOGGERS,
+        )
     )
     logger.info("%s Starting up %s", "-" * 10, "-" * 10)
 
@@ -50,7 +56,7 @@ def configure_client():
     storage_path = os.path.join(source_dir, config["storage"]["path"])
     db = storage.Storage(storage_path)
 
-    client = discord_bot.Client(
+    client = discord.Client(
         github=github_api,
         storage=db,
         owner_id=config["discord"]["owner_id"],

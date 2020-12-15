@@ -3,7 +3,10 @@ import random
 import arrow
 import pytest
 
-import librarian.discord_bot as bot
+from librarian.discord.cogs import (
+    pulls,
+    system
+)
 
 
 def to_arrow(dt=None):
@@ -20,7 +23,7 @@ class TestCount:
 
         for args, start, end, expect_to_fail in (
             ([], this_month_beginning, today_end, False),
-            ([bot.PullCountParser.LAST_MONTH], last_month_beginning, last_month_end, False),
+            ([pulls.CountArgparser.LAST_MONTH], last_month_beginning, last_month_end, False),
             (
                 ["2020-01-01", "2021-01-01"],
                 arrow.get("2020-01-01").floor("day"),
@@ -44,9 +47,9 @@ class TestCount:
         ):
             if expect_to_fail:
                 with pytest.raises(ValueError):
-                    bot.PullCountParser.parse(args)
+                    pulls.CountArgparser.parse(args)
             else:
-                parsed_start, parsed_end = bot.PullCountParser.parse(args)
+                parsed_start, parsed_end = pulls.CountArgparser.parse(args)
                 assert start == parsed_start
                 assert end == parsed_end
 
@@ -63,7 +66,7 @@ class TestDiscordCommands:
 
         def args_maker():
             yield []
-            yield [bot.PullCountParser.LAST_MONTH]
+            yield [pulls.CountArgparser.LAST_MONTH]
             for _ in range(10):
                 yield [pick_any(), pick_any()]
 
@@ -71,10 +74,11 @@ class TestDiscordCommands:
 
         for args in args_maker():
             # tested with test__date_range
-            start, end = bot.PullCountParser.parse(args)
+            start, end = pulls.CountArgparser.parse(args)
 
             ctx = make_context()
-            await bot.count_pulls(ctx, *args)
+            PullCounter = client.get_cog(pulls.PullCounter.__name__)
+            await PullCounter.count(ctx, *args)
 
             for i, call in enumerate(ctx.message.channel.send.call_args_list):
                 if i == 0:
@@ -99,7 +103,7 @@ class TestDiscordCommands:
         "args",
         [
             ["blah"],
-            [bot.PullCountParser.LAST_MONTH, bot.PullCountParser.LAST_MONTH],
+            [pulls.CountArgparser.LAST_MONTH, pulls.CountArgparser.LAST_MONTH],
             ["nonsense", "2020-01-01"],
             ["2020000+123-3", "2000-02-01"],
             ["2020-01-01", "2020-01-02", "2020-01-03"],
@@ -107,12 +111,14 @@ class TestDiscordCommands:
     )
     async def test__bad_count(self, client, make_context, args):
         ctx = make_context()
-        await bot.count_pulls(ctx, *args)
+        PullCounter = client.get_cog(pulls.PullCounter.__name__)
+        await PullCounter.count(ctx, *args)
         assert ctx.send_help.call_args.args[0] == "count"
 
     async def test__report_status(self, client, make_context):
         ctx = make_context()
-        await bot.report_status(ctx)
+        system_cog = client.get_cog(system.System.__name__)
+        await system_cog.report_status(ctx)
         assert ctx.kwargs()["content"]
 
     @pytest.mark.parametrize(
@@ -124,7 +130,8 @@ class TestDiscordCommands:
         ]
     )
     async def test__run_command(self, client, cmdline, rc, out):
-        returncode, output = await client.run_command(cmdline)
+        system_cog = client.get_cog(system.System.__name__)
+        returncode, output = await system_cog.run_command(cmdline)
         assert rc == returncode and output == out
 
     @pytest.mark.parametrize(
@@ -137,7 +144,8 @@ class TestDiscordCommands:
     )
     async def test__run_and_reply(self, client, make_context, cmdline, success):
         ctx = make_context()
-        await client.run_and_reply(ctx.message, cmdline)
+        system_cog = client.get_cog(system.System.__name__)
+        await system_cog.run_and_reply(ctx.message, cmdline)
         content = ctx.kwargs()["content"]
 
         if success is None:
@@ -150,6 +158,7 @@ class TestDiscordCommands:
 
     async def test__show_disk_status(self, client, make_context):
         ctx = make_context()
-        await bot.show_disk_status(ctx)
+        system_cog = client.get_cog(system.System.__name__)
+        await system_cog.show_disk_status(ctx)
         content = ctx.kwargs()["content"]
         assert "librarian@librarian" in content and "/bin/df -Ph /" in content

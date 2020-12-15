@@ -3,13 +3,14 @@ import logging
 import random
 import re
 
-import arrow
 import discord
 from discord.ext import commands
 
 from librarian import routine
-from librarian import utils
-
+from librarian.discord.cogs import (
+    pulls,
+    system,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,38 +70,6 @@ class HelpCommand(commands.DefaultHelpCommand):
         pass
 
 
-class PullCountParser:
-    LAST_MONTH = "lastmonth"
-
-    @classmethod
-    def today_end(cls):
-        return arrow.get().ceil("day")
-
-    @classmethod
-    def last_month_end(cls):
-        return cls.today_end().shift(months=-1).ceil("month")
-
-    @classmethod
-    def parse(cls, args):
-        if not args:
-            end_date = cls.today_end()
-            return end_date.floor("month"), end_date
-
-        if len(args) == 1 and args[0] == cls.LAST_MONTH:
-            end_date = cls.last_month_end()
-            return end_date.floor("month"), end_date
-
-        if len(args) == 2:
-            start_date = arrow.get(args[0])
-            end_date = arrow.get(args[1])
-            if start_date > end_date:
-                start_date, end_date = end_date, start_date
-
-            return start_date.floor("day"), end_date.ceil("day")
-
-        raise ValueError(f"Incorrect arguments {args}")
-
-
 class Client(commands.Bot):
     COMMAND_PREFIX = "."
     KILL_TIMEOUT = 10
@@ -130,9 +99,8 @@ class Client(commands.Bot):
         }
 
     def setup(self):
-        self.add_command(count_pulls)
-        self.add_command(report_status)
-        self.add_command(show_disk_status)
+        self.add_cog(pulls.PullCounter())
+        self.add_cog(system.System())
 
     def start_routines(self):
         logger.debug("Starting routines: %s", ", ".join(self.routines.keys()))
@@ -215,120 +183,3 @@ class Client(commands.Bot):
                 logger.error("Failed to pin/unpin the message #%s: %s", message.id, exc)
 
         return message.channel.id, message.id
-
-    async def run_command(self, command):
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
-            )
-            out, err = await proc.communicate()
-            logger.info("%r succeeded, stdout/stderr follow:", command)
-            logger.info(out)
-
-        except (Exception, BaseException):
-            logger.exception("Failed to run %r", command)
-            return None, None
-
-        return proc.returncode, out.decode("utf-8")
-
-    async def run_and_reply(self, message: discord.Message, command):
-        command = list(map(str, command))
-        logger.info("Running %r on behalf of %s #%s", command, message.author, message.author.id)
-        rc, output = await self.run_command(command)
-        if rc is None:
-            return await message.channel.send(
-                content="Failed to execute `{}` (logged the error, though)".format(" ".join(command))
-            )
-
-        if rc:
-            return await message.channel.send(
-                content="`{}` has died with return code {}".format(" ".join(command), rc)
-            )
-
-        return await message.channel.send(content=utils.pretty_output(command, output))
-
-
-def command(*args, **kwargs):
-    async def is_owner(ctx: commands.Context):
-        return await ctx.bot.is_owner(ctx.author)
-
-    return commands.command(*args, **kwargs, checks=[is_owner])
-
-
-def public_command(*args, **kwargs):
-    return commands.command(*args, **kwargs)
-
-
-@public_command(name="count")
-async def count_pulls(ctx: commands.Context, *args):
-    """
-    pull requests merged within a time span
-
-    .count: current month
-    .count lastmonth: the last month
-    .count <from> <to>: anything between these two. example: 2020-08 2020-10-01
-    """
-
-    try:
-        start_date, end_date = PullCountParser.parse(args)
-    except ValueError:
-        return await ctx.send_help(count_pulls.name)
-
-    pulls = ctx.bot.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
-    pulls = sorted(
-        filter(lambda p: ctx.bot.title_regex.match(p.title), pulls),
-        key=lambda p: p.merged_at
-    )
-    logger.debug(
-        "Interesting pulls in [%s, %s): %s",
-        start_date, end_date, " ".join(str(_.number) for _ in pulls)
-    )
-
-    date_range = "[{}, {}]".format(start_date.date(), end_date.date())
-    msg = "{} pulls merged during {}".format(len(pulls), date_range)
-
-    if not pulls:
-        return await ctx.message.channel.send(content=msg)
-
-    def transform_pulls():
-        for pull in pulls:
-            yield "- {}".format(pull.rich_repr(ctx.bot.github.repo))
-
-    pages = list(utils.iterator(transform_pulls()))
-    for i, page in enumerate(pages):
-        embed = discord.Embed(description=page)
-        embed.set_footer(text=f"{i + 1}/{len(pages)}")
-        content = None if i else msg
-        await ctx.message.channel.send(content=content, embed=embed)
-
-
-@command(name="status")
-async def report_status(ctx: commands.Context, *args):
-    """
-    system information. probably only interesting to the bot owner
-    """
-
-    async def routine_repr(r):
-        status = await r.status()
-        status_string = ", ".join(
-            "{}={}".format(k, v)
-            for k, v in sorted(status.items())
-        )
-        return "[{status}] {name}: {status_string}".format(
-            status=" OK " if r.active else "DEAD",
-            name=r.name,
-            status_string=status_string if status_string else "{}"
-        )
-
-    statuses = await asyncio.gather(*map(routine_repr, ctx.bot.routines.values()))
-    return await ctx.message.channel.send(content=utils.codewrap(statuses))
-
-
-@public_command(name="disk")
-async def show_disk_status(ctx: commands.Context, *args):
-    """
-    amount of space consumed/free on a machine that hosts Librarian
-    """
-
-    await ctx.bot.run_and_reply(ctx.message, ["/bin/df", "-Ph", "/"])
