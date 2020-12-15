@@ -79,13 +79,12 @@ class Client(commands.Bot):
 
     def __init__(
         self, *args, github=None, storage=None, assignee_login=None, title_regex=None,
-        owner_id=None, review_channel=None, review_role_id=None, store_in_pins=False,
+        review_channel=None, review_role_id=None, store_in_pins=False,
         **kwargs
     ):
         self.github = github
         self.storage = storage
 
-        self.owner_id = owner_id
         self.review_channel = review_channel
         self.review_role_id = review_role_id
         self.title_regex = re.compile(title_regex)

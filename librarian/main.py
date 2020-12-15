@@ -55,7 +55,6 @@ def configure_client(config):
     client = discord.Client(
         github=github_api,
         storage=db,
-        owner_id=config["discord"]["owner_id"],
         assignee_login=config["github"]["assignee_login"],
         review_channel=config["discord"]["review_channel"],
         review_role_id=config["discord"]["review_role_id"],

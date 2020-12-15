@@ -8,7 +8,6 @@ github:
 
 discord:
   token: "abc.def.ghi"  # bot token from https://discord.com/developers/applications
-  owner_id: 12345
   review_channel: 67890
   review_role_id: 12345
   store_in_pins: true
