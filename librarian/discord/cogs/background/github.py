@@ -97,7 +97,7 @@ class MonitorPulls(base.BackgroundCog):
             if message is not None:
                 channel_id = message.channel_id
                 message_id = message.id
-            new_channel_id, new_message_id = await self.discord.post_update(pull, channel_id, message_id)
+            new_channel_id, new_message_id = await self.bot.post_update(pull, channel_id, message_id)
             if message_id is None:
                 new_messages.append(storage.DiscordMessage(
                     id=new_message_id,
