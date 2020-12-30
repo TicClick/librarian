@@ -1,4 +1,6 @@
 import contextlib
+import datetime
+import typing
 
 import arrow
 import sqlalchemy as sql
@@ -13,6 +15,14 @@ Base = declarative.declarative_base()
 
 
 class Pull(Base):
+    """
+    Internal representation of a GitHub pull request that only stores necessary fields
+    (some of them are flattened, see `NESTED_KEYS`).
+
+    Some pulls may have notifications sent out for them via Discord,
+    which are recorded in a separate table (see `DiscordMessage`).
+    """
+
     __tablename__ = "pulls"
 
     id = sql.Column(sql.Integer, primary_key=True)
@@ -29,6 +39,8 @@ class Pull(Base):
     commits = sql.Column(sql.Integer, nullable=False)
     user_login = sql.Column(sql.String(PR_USER_LOGIN_LEN), nullable=False)
     user_id = sql.Column(sql.Integer, nullable=False)
+
+    # TODO: these fields were designed for a more rich representation and are probably not needed anymore
     added_files = sql.Column(sql.Integer, nullable=False, default=0)
     deleted_files = sql.Column(sql.Integer, nullable=False, default=0)
     changed_files = sql.Column(sql.Integer, nullable=False, default=0)
@@ -49,13 +61,20 @@ class Pull(Base):
         "user_login", "user_id"
     )
 
-    def read_nested(self, payload, k):
+    def read_nested(self, payload: dict, key: str) -> typing.Any[str]:
+        """
+        Given an underscore-joined sequence, read the corresponding nested value from a dictionary.
+        Example: given `"my_nested_value"`, attempt returning `d["my"]["nested"]["value"]`.
+        """
+
         result = None
-        for chunk in k.split("_"):
+        for chunk in key.split("_"):
             result = (payload if result is None else result).get(chunk)
         return result
 
-    def update(self, payload):
+    def update(self, payload: dict):
+        """ Override existing field values by these from the payload. """
+
         extracted = {}
         for key in self.DIRECT_KEYS:
             if self.id is not None and key == self.ID_KEY:
@@ -70,13 +89,14 @@ class Pull(Base):
 
         super().__init__(**extracted)
 
-    def __init__(self, payload):
+    def __init__(self, payload: dict):
         self.update(dict(payload))
 
-    def url_for(self, repo):
+    def url_for(self, repo: str) -> str:
         return f"https://github.com/{repo}/pull/{self.number}"
 
-    def rich_repr(self, repo):
+    def rich_repr(self, repo: str) -> str:
+        """ Pull representation for messages sent out via Discord. """
         return "#{no} [{title}]({url}) by {author} ({merged_at})".format(
             no=self.number,
             title=self.title,
@@ -86,14 +106,24 @@ class Pull(Base):
         )
 
     @property
-    def real_state(self):
+    def real_state(self) -> str:
+        """ Display a pull's state as seen on GitHub. """
         if self.merged:
             return "merged"
         if self.draft and self.state != "closed":
             return "draft"
         return self.state
 
-    def as_dict(self, id=True, nested=False):
+    def as_dict(self, id: bool = True, nested: bool = False) -> dict:
+        """
+        Convert a pull into a dictionary, keeping converted field values as they are.
+        `Pull().as_dict()` doesn't equal the initial payload:
+        only interesting fields are preserved, and the values such as date stamps are kept converted.
+
+        :param id: return a pull with its GitHub identifier (not the same as the pull's number)
+        :param nested: use nested structure for values that were flattened during the object's construction
+        """
+
         data = {k: getattr(self, k) for k in self.DIRECT_KEYS + self.NESTED_KEYS}
         if nested:
             for k in self.NESTED_KEYS:
@@ -112,6 +142,15 @@ class Pull(Base):
 
 
 class Metadata(Base):
+    """
+    Representation of the bot's state in form of dictionary, where meaningful data
+    obtained at runtime is stored (for example, the last checked pull number). The data
+    must only be composed of any basic Python objects and structures from the standard library:
+    pickle doesn't work with lambdas and can't unpickle an object if its housing module has been changed.
+
+    The state should only be accessed via `MetadataHelper`.
+    """
+
     __tablename__ = "metadata"
 
     id = sql.Column(sql.Integer, primary_key=True)
@@ -119,6 +158,12 @@ class Metadata(Base):
 
 
 class DiscordMessage(Base):
+    """
+    Representation of a Discord message, which is used to keep track of sent notifications
+    (and possibly other future things). The pull it is tied to can be accessed via the `pull` attribute
+    (see `Pull`).
+    """
+
     __tablename__ = "embed"
 
     id = sql.Column(sql.BigInteger, primary_key=True)
@@ -129,7 +174,17 @@ class DiscordMessage(Base):
 
 
 class Storage:
-    def __init__(self, dbpath):
+    """
+    Facade class for the database, which is responsible for table initialization and maintaining database sessions.
+    It also provides access to helper classes, through which one can query individual tables:
+
+        storage = Storage("/tmp/discord.db")
+        pull = storage.pulls.by_number(1234)
+
+    Note: database sessions created via the storage itself and helpers don't commit changes automatically.
+    """
+
+    def __init__(self, dbpath: str):
         self.engine = self.create_engine(f"sqlite:///{dbpath}")
         self.make_session = self.init_session_maker()
         self.create_all_tables()
@@ -139,10 +194,11 @@ class Storage:
         self.discord_messages = DiscordMessageHelper(self)
 
     @staticmethod
-    def create_engine(path) -> sql.engine.Engine:
+    def create_engine(path: str) -> sql.engine.Engine:
         return sql.create_engine(path, echo=False)
 
-    def init_session_maker(self) -> type(orm.Session):
+    def init_session_maker(self) -> orm.Session:
+        """ Create a session factory for internal use. """
         return orm.scoped_session(orm.sessionmaker(
             bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False
         ))
@@ -152,6 +208,18 @@ class Storage:
 
     @contextlib.contextmanager
     def session_scope(self) -> orm.Session:
+        """
+        Context manager that makes sure a new session either commits the changes on leaving the `with` block,
+        or rolls them back completely. Usage example:
+
+            with storage.session_scope as session:
+                obj = session.query(Pull).count()
+                session.add(make_new_pull())
+
+        Note: outside of the test environment, you don't need to use the scope directly.
+        Instead, use the one provided by table helpers.
+        """
+
         session = self.make_session()
         try:
             yield session
@@ -164,12 +232,23 @@ class Storage:
 
 
 class Helper:
-    def __init__(self, storage):
+    """
+    Base class for table-specific helpers that includes access to the database and session factory.
+    """
+
+    def __init__(self, storage: Storage):
         self.storage = storage
         self.session_scope = storage.session_scope
 
 
 def optional_session(f):
+    """
+    A decorator that lets methods that otherwise require an externally created session
+    to be called without it -- the session will be made on the fly. Useful for single calls.
+    """
+
+    # TODO: explicitly check that a function has an argument called s
+
     def inner(self, *args, **kwargs):
         session = kwargs.pop("s", None)
         if session is not None:
@@ -182,12 +261,32 @@ def optional_session(f):
 
 
 class PullHelper(Helper):
+    """
+    A class that interfaces the table with GitHub pulls. See individual methods for usage details.
+    """
+
     @optional_session
-    def save_from_payload(self, payload, s, insert=True):
+    def save_from_payload(self, payload: dict, s: orm.Session, insert: bool = True):
+        """
+        Save a pull from JSON payload, possibly updating it on existence.
+
+        :param payload: JSON data
+        :param s: database session (may be omitted for one-off calls)
+        :param insert: don't do anything if the pull already exists
+        """
+
         self.save(Pull(payload), s=s, insert=insert)
 
     @optional_session
-    def save(self, pull, s, insert=True):
+    def save(self, pull: Pull, s: orm.Session, insert: bool = True):
+        """
+        Save a pull passed as an ORM object, possibly updating it on existence.
+
+        :param pull: an instance of `Pull`
+        :param s: database session (may be omitted for one-off calls)
+        :param insert: don't do anything if the pull already exists
+        """
+
         if s.query(Pull).filter(Pull.number == pull.number).count():
             if insert:
                 return
@@ -196,8 +295,16 @@ class PullHelper(Helper):
             s.add(pull)
 
     @optional_session
-    def save_many_from_payload(self, pulls, s):
-        pulls = {_["number"]: _ for _ in pulls}
+    def save_many_from_payload(self, pulls_list: typing.List[dict], s: orm.Session) -> typing.List[Pull]:
+        """
+        Save and update multiple pulls from a list of JSON payloads
+        and return pulls that existed prior to that.
+
+        :param pulls: a list of pulls in form of JSON data.
+        :param s: database session (may be omitted for one-off calls)
+        """
+
+        pulls = {_["number"]: _ for _ in pulls_list}
 
         existing = s.query(Pull).filter(Pull.number.in_(pulls)).all()
         for pull in existing:
@@ -213,27 +320,51 @@ class PullHelper(Helper):
         return existing
 
     @optional_session
-    def by_number(self, pull_number, s):
+    def by_number(self, pull_number: int, s: orm.Session) -> typing.Optional[Pull]:
+        """ Return a pull by its number, if it exists. """
         return s.query(Pull).filter(Pull.number == pull_number).first()
 
     @optional_session
-    def remove(self, pull_number, s):
+    def remove(self, pull_number: int, s: orm.Session):
+        """ Delete a pull by its number. """
         s.query(Pull).filter(Pull.number == pull_number).delete()
 
     @optional_session
-    def count_merged(self, start_date, end_date, s):
+    def count_merged(
+        self, start_date: datetime.datetime, end_date: datetime.datetime, s: orm.Session
+    ) -> typing.List[Pull]:
+        """
+        Filter pulls that were merged between two dates. To avoid unintended results,
+        pass dates with time, such as start and end of two days, for example,
+        `arrow.get().ceil("day").datetime`.
+
+        :param start_date: lower bound (inclusive)
+        :param end_date: upper bound (exclusive)
+        :param s: database session (may be omitted for one-off calls)
+        """
+
         return s.query(Pull).filter(
             Pull.merged == 1,
             Pull.merged_at.between(start_date, end_date)
         ).all()
 
     @optional_session
-    def active_pulls(self, s):
+    def active_pulls(self, s: orm.Session):
+        """ List all currently open pulls. """
         return s.query(Pull).filter(Pull.state != "closed").all()
 
 
 class MetadataHelper(Helper):
+    """
+    A class that interfaces the bot's stored state and lets using it as a key-value storage. Example:
+
+        storage = Storage("/tmp/discord.db")
+        storage.metadata.save_field("first_three_numbers", [1, 2, 3])
+        secret_numbers = storage.metadata.load_field("first_three_numbers")
+    """
+
     def load(self) -> dict:
+        """ Load and return the full state. """
         with self.session_scope() as s:
             result = s.query(Metadata).filter().first()
             if result is None:
@@ -241,26 +372,35 @@ class MetadataHelper(Helper):
                 s.add(result)
             return result.data
 
-    def save(self, metadata):
+    def save(self, metadata: dict):
+        """ Store passed state in the database. """
         with self.session_scope() as s:
             result = s.query(Metadata).filter().first()
             result.data = metadata
             s.add(result)
 
-    def load_field(self, key):
+    def load_field(self, key: str) -> typing.Any:
+        """ Access a specific state value by its key. """
         return self.load().get(key)
 
     def save_field(self, key, value):
+        """ Save a single value by its key. """
         data = self.load()
         data[key] = value
         self.save(data)
 
 
 class DiscordMessageHelper(Helper):
-    def save(self, *messages):
+    """
+    A class that interfaces the table with Discord messages. See individual methods for usage details.
+    """
+
+    def save(self, *messages: typing.List[DiscordMessage]):
+        """ Save multiple messages into the database. """
         with self.session_scope() as s:
             s.add_all(messages)
 
-    def by_pull_numbers(self, *pull_numbers):
+    def by_pull_numbers(self, *pull_numbers: typing.List[int]):
+        """ Return all known messages that are tied to the specified pulls. """
         with self.session_scope() as s:
             return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()

@@ -26,7 +26,7 @@ class RateLimit:
     HEADER_REMAINING = "X-Ratelimit-Remaining"
     HEADER_RESET = "X-Ratelimit-Reset"
 
-    def __init__(self, headers: typing.Dict = None):
+    def __init__(self, headers: typing.Dict[str, str] = None):
         self.limit: typing.Optional[int] = None
         self.left: typing.Optional[int] = None
         self.reset = arrow.Arrow.utcnow()
@@ -67,7 +67,7 @@ class GitHub:
     """
 
     BASE_URL = "https://api.github.com"
-    OBJECTS_PER_PAGE = 100
+    OBJECTS_PER_PAGE = 100  # the maximum GitHub can provide
     SESSION_METHODS = {"get", "options", "head", "post", "put", "batch", "delete"}
 
     def __init__(self, token: str, repo: str):
@@ -81,7 +81,7 @@ class GitHub:
         self.repo = repo
 
     @classmethod
-    def make_default_headers(cls, token) -> typing.Dict:
+    def make_default_headers(cls, token) -> typing.Dict[str, str]:
         """
         Create a default set of headers for GitHub API.
         These carry authorization data and keep the connection open for HTTP/1.1.
@@ -101,7 +101,7 @@ class GitHub:
         return aiohttp.ClientSession(headers=self.make_default_headers(self.__token))
 
     async def call_method(
-        self, path: str, query: typing.Dict = None, data: typing.Dict = None,
+        self, path: str, query: dict = None, data: dict = None,
         session: aiohttp.ClientSession = None, method: str = "get"
     ) -> dict:
         """
@@ -139,21 +139,21 @@ class GitHub:
                     await session.close()
 
     async def get(
-        self, path: str, query: typing.Dict = None, session: aiohttp.ClientSession = None
-    ) -> typing.Optional[typing.Dict]:
+        self, path: str, query: dict = None, session: aiohttp.ClientSession = None
+    ) -> typing.Optional[dict]:
         """ Perform GET HTTP request. """
         return await self.call_method(path=path, query=query, session=session, method="get")
 
     async def post(
-        self, path: str, query: typing.Dict = None, data: typing.Dict = None,
+        self, path: str, query: dict = None, data: dict = None,
         session: aiohttp.ClientSession = None
-    ) -> typing.Optional[typing.Dict]:
+    ) -> typing.Optional[dict]:
         """ Perform POST HTTP request. """
         return await self.call_method(path=path, query=query, data=data, session=session, method="post")
 
     async def get_single_pull(
         self, pull_id: int, session: aiohttp.ClientSession = None
-    ) -> typing.Optional[typing.Dict]:
+    ) -> typing.Optional[dict]:
         """
         Fetch the data about one pull from the repository. Because pulls are extended issues,
         some information is also accessible when reading a pull as an issue (see `get_single_issue`).
@@ -169,7 +169,7 @@ class GitHub:
 
     async def add_assignee(
         self, issue_id: int, assignee: str, session: aiohttp.ClientSession = None
-    ) -> typing.Optional[typing.Dict]:
+    ) -> typing.Optional[dict]:
         """ Add an assignee by their login to a pull or an issue. """
 
         path = f"repos/{self.repo}/issues/{issue_id}/assignees"
@@ -178,7 +178,7 @@ class GitHub:
 
     async def get_single_issue(
         self, issue_id: int, session: aiohttp.ClientSession = None
-    ) -> typing.Optional[typing.Dict]:
+    ) -> typing.Optional[dict]:
         """
         Fetch the data about one issue from the repository. Pulls may also be accessed through this method,
         although response is scarce -- use `get_single_pull` instead.
@@ -194,7 +194,7 @@ class GitHub:
 
     async def pulls(
         self, state: str = "open", direction: str = "asc", sort: str = "created", session: aiohttp.ClientSession = None
-    ) -> typing.List[typing.Dict]:
+    ) -> typing.List[dict]:
         """
         List all pulls that fit given conditions, while iterating over their listing if it has multiple pages.
 
@@ -205,7 +205,7 @@ class GitHub:
         :param session: client session object
         """
 
-        out: typing.List[typing.Dict] = []
+        out: typing.List[dict] = []
         path = f"repos/{self.repo}/pulls"
         base_query = dict(state=state, sort=sort, direction=direction, per_page=self.OBJECTS_PER_PAGE)
         for page in it.count(1):
