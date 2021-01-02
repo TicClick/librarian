@@ -36,6 +36,8 @@ def setup_logging(runtime_dir, logging_config, loggers):
 
 
 def configure_client(config):
+    # TODO: automatically pick up loggers from all modules
+    # TODO: ban logging.{debug,info,warning,error,critical} which I sometimes call by mistake
     setup_logging(
         config["runtime"]["dir"], config["logging"],
         itertools.chain(
