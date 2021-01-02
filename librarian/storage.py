@@ -61,7 +61,7 @@ class Pull(Base):
         "user_login", "user_id"
     )
 
-    def read_nested(self, payload: dict, key: str) -> typing.Any[str]:
+    def read_nested(self, payload: dict, key: str) -> typing.Any:
         """
         Given an underscore-joined sequence, read the corresponding nested value from a dictionary.
         Example: given `"my_nested_value"`, attempt returning `d["my"]["nested"]["value"]`.
@@ -91,28 +91,6 @@ class Pull(Base):
 
     def __init__(self, payload: dict):
         self.update(dict(payload))
-
-    def url_for(self, repo: str) -> str:
-        return f"https://github.com/{repo}/pull/{self.number}"
-
-    def rich_repr(self, repo: str) -> str:
-        """ Pull representation for messages sent out via Discord. """
-        return "#{no} [{title}]({url}) by {author} ({merged_at})".format(
-            no=self.number,
-            title=self.title,
-            url=self.url_for(repo),
-            author=self.user_login,
-            merged_at=self.merged_at.date(),
-        )
-
-    @property
-    def real_state(self) -> str:
-        """ Display a pull's state as seen on GitHub. """
-        if self.merged:
-            return "merged"
-        if self.draft and self.state != "closed":
-            return "draft"
-        return self.state
 
     def as_dict(self, id: bool = True, nested: bool = False) -> dict:
         """

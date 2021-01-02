@@ -4,7 +4,10 @@ import arrow
 import discord
 from discord.ext import commands
 
-from librarian.discord import utils
+from librarian.discord import (
+    formatters,
+    utils,
+)
 from librarian.discord.cogs import decorators
 
 logger = logging.getLogger(__name__)
@@ -42,7 +45,7 @@ class CountArgparser:
         raise ValueError(f"Incorrect arguments {args}")
 
 
-class PullCounter(commands.Cog):
+class Pulls(commands.Cog):
     @decorators.public_command()
     async def count(self, ctx: commands.Context, *args):
         """
@@ -56,7 +59,7 @@ class PullCounter(commands.Cog):
         try:
             start_date, end_date = CountArgparser.parse(args)
         except ValueError:
-            return await ctx.send_help(PullCounter.count.name)
+            return await ctx.send_help(Pulls.count.name)
 
         pulls = ctx.bot.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
         pulls = sorted(
@@ -75,8 +78,8 @@ class PullCounter(commands.Cog):
             return await ctx.message.channel.send(content=msg)
 
         def transform_pulls():
-            for pull in pulls:
-                yield "- {}".format(pull.rich_repr(ctx.bot.github.repo))
+            for p in pulls:
+                yield "- {}".format(formatters.PullFormatter.rich_repr(p, ctx.bot.github.repo))
 
         pages = list(utils.iterator(transform_pulls()))
         for i, page in enumerate(pages):

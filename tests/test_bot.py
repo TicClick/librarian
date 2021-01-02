@@ -77,8 +77,8 @@ class TestDiscordCommands:
             start, end = pulls.CountArgparser.parse(args)
 
             ctx = make_context()
-            PullCounter = client.get_cog(pulls.PullCounter.__name__)
-            await PullCounter.count(ctx, *args)
+            Pulls = client.get_cog(pulls.Pulls.__name__)
+            await Pulls.count(ctx, *args)
 
             for i, call in enumerate(ctx.message.channel.send.call_args_list):
                 if i == 0:
@@ -111,8 +111,8 @@ class TestDiscordCommands:
     )
     async def test__bad_count(self, client, make_context, args):
         ctx = make_context()
-        PullCounter = client.get_cog(pulls.PullCounter.__name__)
-        await PullCounter.count(ctx, *args)
+        Pulls = client.get_cog(pulls.Pulls.__name__)
+        await Pulls.count(ctx, *args)
         assert ctx.send_help.call_args.args[0] == "count"
 
     async def test__report_status(self, client, make_context):

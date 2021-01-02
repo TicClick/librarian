@@ -1,6 +1,5 @@
 import inspect
 import random
-from urllib import parse
 
 import arrow
 import pytest
@@ -54,13 +53,10 @@ class TestPulls:
             assert getattr(pull, k) == pull.read_nested(payload, k)
 
     @pytest.mark.freeze_time
-    def test__obj(self, existing_pulls, repo):
+    def test__obj(self, existing_pulls):
         for p in existing_pulls:
             pull = stg.Pull(p)
             self.compare_pull(pull, p)
-
-            pull_url = parse.urlparse(pull.url_for(repo)).geturl()
-            assert pull_url == "https://github.com/{}/pull/{}".format(repo, pull.number)
 
             updated_p = dict(p)
             updated_p["id"] = 1234567890
@@ -71,13 +67,6 @@ class TestPulls:
             self.compare_pull(pull, updated_p, blacklist=("id",))
             assert pull.id != updated_p["id"]
 
-            if p["merged"]:
-                assert pull.real_state == "merged" and pull.state == "closed"
-            elif p["draft"]:
-                assert pull.state != "draft" and (pull.real_state == "draft" if pull.state != "closed" else "closed")
-            else:
-                assert pull.real_state == p["state"]
-
             self.compare_pull(pull, pull.as_dict(nested=True))
             self.compare_pull(pull, stg.Pull(pull.as_dict(nested=True)).as_dict(nested=True))
 
@@ -87,9 +76,7 @@ class TestPulls:
         mocker.patch.object(stg.PullHelper, "save", side_effect=stg.PullHelper.save)
         with storage.session_scope() as session:
             add_object = mocker.patch.object(session, "add", side_effect=session.add)
-            for i, p in enumerate(
-                random.sample(existing_pulls, self.MAX_PULLS)
-            ):
+            for p in random.sample(existing_pulls, self.MAX_PULLS):
                 storage.pulls.save_from_payload(p, s=session)
                 storage.pulls.save.assert_called()
                 count += 1

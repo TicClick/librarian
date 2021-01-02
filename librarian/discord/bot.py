@@ -6,6 +6,7 @@ import re
 import discord
 from discord.ext import commands
 
+from librarian.discord import formatters
 from librarian.discord.cogs import (
     pulls,
     system,
@@ -40,38 +41,6 @@ GREETINGS = [
     "`wiki.by_language('russian').inflight_translations += 1`",
 ]
 
-COLORS = {
-    "open": 0x28a745,
-    "draft": 0x6a737d,
-    "closed": 0xd73a49,
-    "merged": 0x6f42c1,
-}
-
-# https://github.com/primer/octicons
-ICONS = {
-    "open": "https://raw.githubusercontent.com/TicClick/librarian/main/media/check-circle-32.png",
-    "draft": "https://raw.githubusercontent.com/TicClick/librarian/main/media/circle-32.png",
-    "closed": "https://raw.githubusercontent.com/TicClick/librarian/main/media/circle-slash-32.png",
-    "merged": "https://raw.githubusercontent.com/TicClick/librarian/main/media/check-circle-fill-32.png",
-}
-
-
-class HelpCommand(commands.DefaultHelpCommand):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        def interceptor(f):
-            def add_line(line, *a, **kw):
-                if self.no_category in line:
-                    return
-                return f(line, *a, **kw)
-            return add_line
-
-        self.paginator.add_line = interceptor(self.paginator.add_line)
-
-    def get_ending_note(self, *_):
-        pass
-
 
 class Client(commands.Bot):
     COMMAND_PREFIX = "."
@@ -91,10 +60,10 @@ class Client(commands.Bot):
         self.assignee_login = assignee_login
         self.store_in_pins = store_in_pins
 
-        super().__init__(*args, command_prefix=self.COMMAND_PREFIX, help_command=HelpCommand(), **kwargs)
+        super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)
 
     def setup(self):
-        self.add_cog(pulls.PullCounter())
+        self.add_cog(pulls.Pulls())
         self.add_cog(system.System())
         self.add_cog(github_cogs.FetchNewPulls(self))
         self.add_cog(github_cogs.MonitorPulls(self, assignee_login=self.assignee_login, title_regex=self.title_regex))
@@ -120,30 +89,7 @@ class Client(commands.Bot):
 
         logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)
         content = "<@&{}>, {}".format(self.review_role_id, random.choice(GREETINGS))
-        description = (
-            f"**author**: {pull.user_login}\n"
-            f"**last update**: {pull.updated_at.date()} at {pull.updated_at.time()} GMT"
-        )
-        embed = discord.Embed(
-            title="#{} {}".format(pull.number, pull.title),
-            description=description,
-            url=pull.url_for(self.github.repo),
-            color=COLORS.get(pull.real_state, "closed"),
-        )
-        embed.set_footer(
-            text=" | ".join((
-                pull.real_state.upper(),
-                "{comments} review comment{comments_suffix}".format(
-                    comments=pull.review_comments,
-                    comments_suffix="" if pull.review_comments == 1 else "s"
-                ),
-                "{changed_files} file{changed_files_suffix} affected".format(
-                    changed_files=pull.changed_files,
-                    changed_files_suffix="" if pull.changed_files == 1 else "s"
-                )
-            )),
-            icon_url=ICONS.get(pull.real_state, "closed")
-        )
+        embed = formatters.PullFormatter.make_embed_for(pull, self.github.repo)
 
         channel = self.get_channel(channel_id or self.review_channel)
         if channel is None:
@@ -168,7 +114,7 @@ class Client(commands.Bot):
 
         if self.store_in_pins:
             try:
-                if pull.state == "closed":
+                if pull.state == formatters.PullState.CLOSED.name:
                     await message.unpin()
                 elif not message.pinned:
                     await message.pin()
