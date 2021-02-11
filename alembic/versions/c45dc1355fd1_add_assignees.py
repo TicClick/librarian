@@ -8,7 +8,6 @@ Create Date: 2021-02-11 16:16:20.774530
 
 from alembic import op
 import sqlalchemy as sql
-from sqlalchemy import orm
 
 
 # revision identifiers, used by Alembic.
