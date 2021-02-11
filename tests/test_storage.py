@@ -83,7 +83,11 @@ class TestPulls:
 
                 session.commit()
                 assert session.query(stg.Pull).filter(stg.Pull.number == p["number"]).count() == 1
-                assert storage.pulls.by_number(p["number"], s=session)
+
+                saved_pull = storage.pulls.by_number(p["number"], s=session)
+                assert saved_pull
+                if p["assignees"]:
+                    assert set(_["login"] for _ in p["assignees"]) == set(saved_pull.assignees_logins)
 
                 duplicate = dict(p)
                 duplicate["title"] = "title-has-changed"

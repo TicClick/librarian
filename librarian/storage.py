@@ -9,7 +9,7 @@ from sqlalchemy.ext import declarative
 
 PR_STATE_LEN = 32
 PR_TITLE_LEN = 512
-PR_USER_LOGIN_LEN = 64
+USER_LOGIN_LEN = 64
 
 Base = declarative.declarative_base()
 
@@ -37,13 +37,15 @@ class Pull(Base):
     draft = sql.Column(sql.Integer, nullable=False)
     review_comments = sql.Column(sql.Integer, nullable=False)
     commits = sql.Column(sql.Integer, nullable=False)
-    user_login = sql.Column(sql.String(PR_USER_LOGIN_LEN), nullable=False)
+    user_login = sql.Column(sql.String(USER_LOGIN_LEN), nullable=False)
     user_id = sql.Column(sql.Integer, nullable=False)
 
     # TODO: these fields were designed for a more rich representation and are probably not needed anymore
     added_files = sql.Column(sql.Integer, nullable=False, default=0)
     deleted_files = sql.Column(sql.Integer, nullable=False, default=0)
     changed_files = sql.Column(sql.Integer, nullable=False, default=0)
+
+    assignees_logins = sql.Column(sql.JSON, default=[])
 
     discord_messages = orm.relationship(
         "DiscordMessage", order_by="DiscordMessage.id", back_populates="pull", lazy="joined"
@@ -87,19 +89,20 @@ class Pull(Base):
         for key in self.NESTED_KEYS:
             extracted[key] = self.read_nested(payload, key)
 
+        extracted["assignees_logins"] = [_["login"] for _ in payload["assignees"]]
         super().__init__(**extracted)
 
     def __init__(self, payload: dict):
         self.update(dict(payload))
 
-    def as_dict(self, id: bool = True, nested: bool = False) -> dict:
+    def as_dict(self, nested: bool = False, internal: bool = False) -> dict:
         """
         Convert a pull into a dictionary, keeping converted field values as they are.
         `Pull().as_dict()` doesn't equal the initial payload:
         only interesting fields are preserved, and the values such as date stamps are kept converted.
 
-        :param id: return a pull with its GitHub identifier (not the same as the pull's number)
         :param nested: use nested structure for values that were flattened during the object's construction
+        :param internal: omit or convert certain fields, such that a model could be initialized from the object
         """
 
         data = {k: getattr(self, k) for k in self.DIRECT_KEYS + self.NESTED_KEYS}
@@ -114,8 +117,12 @@ class Pull(Base):
                     else:
                         root = root.setdefault(part, {})
 
-        if not id:
+        if internal:
             data.pop(self.ID_KEY)
+            data["assignees_logins"] = self.assignees_logins
+        else:
+            data["assignees"] = [{"login": _} for _ in self.assignees_logins]
+
         return data
 
 
@@ -268,7 +275,7 @@ class PullHelper(Helper):
         if s.query(Pull).filter(Pull.number == pull.number).count():
             if insert:
                 return
-            s.query(Pull).filter(Pull.number == pull.number).update(pull.as_dict(id=False))
+            s.query(Pull).filter(Pull.number == pull.number).update(pull.as_dict(internal=True))
         else:
             s.add(pull)
 

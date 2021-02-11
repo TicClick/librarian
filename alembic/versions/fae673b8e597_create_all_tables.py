@@ -20,7 +20,7 @@ depends_on = None
 
 PR_STATE_LEN = 32
 PR_TITLE_LEN = 512
-PR_USER_LOGIN_LEN = 64
+USER_LOGIN_LEN = 64
 
 Base = declarative.declarative_base()
 
@@ -42,7 +42,7 @@ class Pull(Base):
     draft = sql.Column(sql.Integer, nullable=False)
     review_comments = sql.Column(sql.Integer, nullable=False)
     commits = sql.Column(sql.Integer, nullable=False)
-    user_login = sql.Column(sql.String(PR_USER_LOGIN_LEN), nullable=False)
+    user_login = sql.Column(sql.String(USER_LOGIN_LEN), nullable=False)
     user_id = sql.Column(sql.Integer, nullable=False)
 
     added_files = sql.Column(sql.Integer, nullable=False, default=0)
