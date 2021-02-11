@@ -36,5 +36,8 @@ jobs:
             [ -e '$PROJECT' ] && rm -r '$PROJECT'
             git clone $REPOSITORY '$PROJECT' && cd '$PROJECT'
             git fetch && git checkout '$GITHUB_REF'
-            ./bin.sh setup && tmux new -d -s '$PROJECT' './bin.sh run --config ~/config.yaml'
+            (
+              ./bin.sh setup &&
+              ./bin.sh db --config ~/config.yaml upgrade head
+            ) && tmux new -d -s '$PROJECT' './bin.sh run --config ~/config.yaml'
           "
