@@ -45,6 +45,10 @@ class LanguageMeta(type):
 
     @classmethod
     def get(mcs, langcode):
+        if langcode not in mcs.__languages:
+            class DummyLanguage(metaclass=mcs):
+                code = langcode
+
         return mcs.__languages[langcode]
 
     @classmethod

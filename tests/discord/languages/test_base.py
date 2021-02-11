@@ -21,6 +21,12 @@ class TestLanguages:
             assert language.random_highlight in language.highlights
             assert isinstance(language.title_regex, re.Pattern)
 
+        fresh = base.LanguageMeta.get("nonsensical-language")
+        assert fresh.code == "nonsensical-language"
+        assert fresh.title_regex.match("[nonsensical-language] TEST")
+        assert sorted(fresh.highlights) == sorted(base.LanguageMeta.highlights)
+        assert base.LanguageMeta.get("nonsensical-language") is fresh  # second lookup doesn't create a new class
+
     def test__matching(self):
         class FakeLanguage(base.Language):
             code = "not"
