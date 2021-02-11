@@ -31,6 +31,8 @@ target_metadata = None
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+CONFIG_PATH_VAR = "LIBRARIAN_CONFIG"
+
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -79,7 +81,7 @@ def run_migrations_online():
 
 
 def set_sqlalchemy_url():
-    config = librarian_cfg.load(os.getenv(librarian_cfg.CONFIG_PATH_VAR))
+    config = librarian_cfg.load(os.getenv(CONFIG_PATH_VAR))
     storage_path = os.path.join(config["runtime"]["dir"], config["storage"]["path"])
     alembic_config.set_main_option("sqlalchemy.url", "sqlite:///{}".format(storage_path))
 

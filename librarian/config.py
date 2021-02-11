@@ -2,8 +2,6 @@ import os
 
 import yaml
 
-CONFIG_PATH_VAR = "LIBRARIAN_CONFIG"
-
 
 def load(config_path):
     if not config_path:

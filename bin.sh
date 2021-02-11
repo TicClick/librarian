@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
 
         hcov)
         shift
-        "$BIN_DIR"/coverage html && ((which xdg-open && xdg-open htmlcov/index.html) || open htmlcov/index.html)
+        "$BIN_DIR"/coverage html && ( ( which xdg-open && xdg-open htmlcov/index.html ) || open htmlcov/index.html )
         exit $?;;
 
         clean)
@@ -45,6 +45,21 @@ while [[ $# -gt 0 ]]; do
         for ITEM in {htmlcov,.coverage}; do rm -r "$ITEM"; done; \
         for ITEM in {.pytest_cache,__pycache__}; do find . -name "$ITEM" -exec rm -r {} +; done
         rm -r "$VENV_DIR"
+        exit $?;;
+
+        db|alembic)
+        shift
+        LIBRARIAN_CONFIG=""
+        if [ "$1" = "--config" ]; then
+            shift
+            LIBRARIAN_CONFIG="$1"
+            shift
+        else
+            echo "invalid call format. expected:" >&2
+            echo -e "\t$0 db --config /path/to/config <any arguments related to db migration>" >&2
+            exit 1
+        fi
+        LIBRARIAN_CONFIG="$LIBRARIAN_CONFIG" "$BIN_DIR"/alembic "$@"
         exit $?;;
 
     esac
