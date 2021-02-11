@@ -4,9 +4,8 @@ import logging
 import os
 import sys
 
-import yaml
-
 from librarian import (
+    config,
     discord,
     github,
     storage,
@@ -78,30 +77,10 @@ def run_client(client, config):
         logger.debug(" Shutdown completed ".center(PADDING, PADDING_CHAR))
 
 
-def load_config(config_path):
-    if config_path.endswith(".example.yaml"):
-        raise RuntimeError("Can't use example config, see the note on its first line")
+def parse_args(args=None):
+    if args is None:
+        args = sys.argv[1:]
 
-    print(f"Loading config from {config_path}")
-    with open(config_path, "r") as fd:
-        config = yaml.safe_load(fd)
-
-    runtime = config["runtime"]["dir"]
-    if not os.path.exists(runtime):   # may happen when Python runtime is in a different directory
-        os.makedirs(runtime)
-    for path in ("logging.file", "storage.path"):
-        root = config
-        parts = path.split(".")
-        for i, p in enumerate(parts):
-            if i < len(parts) - 1:
-                root = root[p]
-            else:
-                root[p] = root[p].format(runtime=runtime)
-
-    return config
-
-
-def parse_args(args):
     source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
     default_config_path = os.path.join(source_dir, "config/config.yaml")
 
@@ -113,9 +92,9 @@ def parse_args(args):
 
 
 def main():
-    args = parse_args(sys.argv[1:])
-    config = load_config(args.config)
-    client, token = configure_client(config)
+    args = parse_args()
+    cfg = config.load(args.config)
+    client, token = configure_client(cfg)
     run_client(client, token)
 
 
