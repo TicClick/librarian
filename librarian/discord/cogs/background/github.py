@@ -75,15 +75,26 @@ class MonitorPulls(base.BackgroundCog):
         self.title_regex = title_regex
 
     async def act_on_pulls(self, pulls):
-        logger.info("%s: wanting to act on %d pulls: %s", self.name, len(pulls), sorted(_.number for _ in pulls))
-        await self.add_assignee([_ for _ in pulls if _.user_login != self.assignee_login])
+        selected_pulls = [
+            _
+            for _ in pulls if
+            self.assignee_login not in _.assignees_logins + [_.user_login]
+        ]
+        if selected_pulls and self.assignee_login:
+            logger.info(
+                "%s: adding assignee to %d pulls: %s",
+                self.name, len(selected_pulls), sorted(_.number for _ in selected_pulls)
+            )
+            await self.add_assignee(selected_pulls)
 
         messages = {
             pull.number: pull.discord_messages[0] if pull.discord_messages else None
             for pull in pulls if
             pull.number > self.CUTOFF_PULL_NUMBER
         }
-        await self.update_messages(pulls, messages)
+        if messages:
+            logger.info("%s: updating %d messages", self.name, len(messages))
+            await self.update_messages(pulls, messages)
 
     async def update_messages(self, pulls, messages):
         logger.info(
