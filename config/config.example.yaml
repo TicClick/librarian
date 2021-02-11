@@ -2,14 +2,14 @@
 
 github:
   token: "abcdefgh"  # https://github.com/settings/tokens
-  assignee_login: "TicClick"
-  repo: "someone/osu-wiki"
-  title_regex: ^\[(\w+.?)?RU(.+)?\]
+  assignee_login: null
+  repo: "ppy/osu-wiki"
 
 discord:
   token: "abc.def.ghi"  # bot token from https://discord.com/developers/applications
   review_channel: 67890
   review_role_id: 12345
+  language_code: "ru"
   store_in_pins: true
 
 runtime:

@@ -94,7 +94,7 @@ class TestDiscordCommands:
                 for _ in merged_only if
                 (
                     start <= arrow.get(_["merged_at"]) < end and
-                    client.title_regex.match(_["title"])
+                    client.language.title_regex.match(_["title"])
                 )
             ]
             assert len(merged) == cnt, (", ".join(_["merged_at"] for _ in merged), start, end)

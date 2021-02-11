@@ -1,12 +1,13 @@
 import asyncio
 import logging
-import random
-import re
 
 import discord
 from discord.ext import commands
 
-from librarian.discord import formatters
+from librarian.discord import (
+    formatters,
+    languages,
+)
 from librarian.discord.cogs import (
     pulls,
     system,
@@ -19,35 +20,12 @@ from librarian.discord.cogs.background import (
 logger = logging.getLogger(__name__)
 
 
-GREETINGS = [
-    "a new wiki article is just a click away:",
-    u"время исправлять чужие ошибки:",
-    u"вышла новая книга Владимира Сорокина:",
-    u"на GitHub опять что-то перевели:",
-    u"хороших выходных:",
-    u"объясняем на карточках вместе с Медузой:",
-    u"вот ещё кое-что:",
-    u"пожалуйста, взгляните:",
-    u"доставайте красные карандаши:",
-    u"если некуда девать свободное время:",
-    u"новый пулл-реквест на небосклоне:",
-    u"у нас на один перевод больше:",
-    u"произошло что-то интересное:",
-    u"у вас одно новое сообщение:",
-    u"перевод? перевод!",
-    u"вам письмо от неанонимного доброжелателя:",
-    u"здесь могла быть ваша реклама:",
-    u"нужна помощь:",
-    "`wiki.by_language('russian').inflight_translations += 1`",
-]
-
-
 class Client(commands.Bot):
     COMMAND_PREFIX = "."
     KILL_TIMEOUT = 10
 
     def __init__(
-        self, *args, github=None, storage=None, assignee_login=None, title_regex=None,
+        self, *args, github=None, storage=None, assignee_login=None, language_code=None,
         review_channel=None, review_role_id=None, store_in_pins=False,
         **kwargs
     ):
@@ -56,9 +34,10 @@ class Client(commands.Bot):
 
         self.review_channel = review_channel
         self.review_role_id = review_role_id
-        self.title_regex = re.compile(title_regex)
         self.assignee_login = assignee_login
         self.store_in_pins = store_in_pins
+
+        self.language = languages.LanguageMeta.get(language_code)
 
         super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)
 
@@ -66,7 +45,7 @@ class Client(commands.Bot):
         self.add_cog(pulls.Pulls())
         self.add_cog(system.System())
         self.add_cog(github_cogs.FetchNewPulls(self))
-        self.add_cog(github_cogs.MonitorPulls(self, assignee_login=self.assignee_login, title_regex=self.title_regex))
+        self.add_cog(github_cogs.MonitorPulls(self))
 
     async def start_routines(self):
         logger.debug("Starting cogs")
@@ -88,7 +67,7 @@ class Client(commands.Bot):
             return
 
         logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)
-        content = "<@&{}>, {}".format(self.review_role_id, random.choice(GREETINGS))
+        content = "<@&{}>, {}".format(self.review_role_id, self.language.random_highlight)
         embed = formatters.PullFormatter.make_embed_for(pull, self.github.repo)
 
         channel = self.get_channel(channel_id or self.review_channel)

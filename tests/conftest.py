@@ -115,8 +115,8 @@ def titles():
 
 
 @pytest.fixture
-def regex():
-    return r"^\[(\w+.?)?RU(.+)?\]"
+def language_code():
+    return "ru"
 
 
 @pytest.fixture
@@ -135,11 +135,11 @@ def storage(dbpath):
 
 
 @pytest.fixture
-def client(mock_github, storage, repo, gh_token, regex, assignee_login):
+def client(mock_github, storage, repo, gh_token, language_code, assignee_login):
     bot = librarian.discord.Client(
         github=librarian.github.GitHub(repo, gh_token),
         storage=storage,
-        title_regex=regex,
+        language_code=language_code,
         assignee_login=assignee_login,
     )
     bot.setup()

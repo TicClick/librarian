@@ -63,7 +63,7 @@ class Pulls(commands.Cog):
 
         pulls = ctx.bot.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
         pulls = sorted(
-            filter(lambda p: ctx.bot.title_regex.match(p.title), pulls),
+            filter(lambda p: ctx.bot.language.title_regex.match(p.title), pulls),
             key=lambda p: p.merged_at
         )
         logger.debug(

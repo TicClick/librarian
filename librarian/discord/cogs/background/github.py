@@ -69,10 +69,10 @@ class MonitorPulls(base.BackgroundCog):
     INTERVAL = 60
     CUTOFF_PULL_NUMBER = 4450
 
-    def __init__(self, bot, assignee_login=None, title_regex=None, *args, **kwargs):
+    def __init__(self, bot, *args, **kwargs):
         super().__init__(bot, *args, **kwargs)
-        self.assignee_login = assignee_login
-        self.title_regex = title_regex
+        self.assignee_login = bot.assignee_login
+        self.title_regex = bot.language.title_regex
 
     async def act_on_pulls(self, pulls):
         selected_pulls = [
