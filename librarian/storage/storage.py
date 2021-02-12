@@ -32,7 +32,7 @@ class Storage:
 
         self.pulls = pull.PullHelper(self)
         self.metadata = metadata.MetadataHelper(self)
-        self.discord_messages = discord.DiscordMessageHelper(self)
+        self.discord = discord.DiscordHelper(self)
 
     @staticmethod
     def create_engine(path: str) -> sql.engine.Engine:

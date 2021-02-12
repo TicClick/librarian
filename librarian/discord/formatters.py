@@ -100,3 +100,12 @@ class PullFormatter:
             icon_url=state.icon
         )
         return embed
+
+
+class UserFormatter:
+    @classmethod
+    def chain(cls, users, separator=", "):
+        return separator.join(
+            "<@{}>".format(_ if isinstance(_, int) else _.id)
+            for _ in users
+        )

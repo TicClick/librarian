@@ -115,7 +115,7 @@ class MonitorPulls(base.BackgroundCog):
                     channel_id=new_channel_id,
                     pull_number=pull.number
                 ))
-        self.storage.discord_messages.save(*new_messages)
+        self.storage.discord.save_messages(*new_messages)
 
     async def add_assignee(self, pulls):
         if not pulls:

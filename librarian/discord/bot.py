@@ -10,6 +10,7 @@ from librarian.discord import (
 )
 from librarian.discord.cogs import (
     pulls,
+    server,
     system,
 )
 from librarian.discord.cogs.background import (
@@ -46,6 +47,7 @@ class Client(commands.Bot):
         self.add_cog(system.System())
         self.add_cog(github_cogs.FetchNewPulls(self))
         self.add_cog(github_cogs.MonitorPulls(self))
+        self.add_cog(server.Server(self))
 
     async def start_routines(self):
         logger.debug("Starting cogs")
