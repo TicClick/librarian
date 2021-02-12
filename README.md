@@ -1,5 +1,7 @@
 # Librarian
 
+![test](media/repo/screenshot.png)
+
 ## overview
 
 a Discord bot that tracks new pull requests of the [ppy/osu-wiki](https://github.com/ppy/osu-wiki) repository. it's a GitHub web hook, except not really:
@@ -29,7 +31,11 @@ I'm considering providing it as a service, but there's a long way to go. for now
 
 1. [create a Discord application](https://discord.com/developers/applications) and add a bot account to it.
 2. add the bot to your server using a modified version of an OAuth2 authorization link from [Bot Authorization Flow](https://discord.com/developers/docs/topics/oauth2#bot-authorization-flow).
-3. clone the repository. create a modified version of `config/config.example.yaml` anf fill in whatever data you need
+3. clone the repository:
+    ```bash
+    git clone https://github.com/TicClick/librarian
+    ```
+    create a modified version of `config/config.example.yaml` and fill in whatever data you need
 4. to benefit from GitHub's extended API limits, query it using an API token (get one at [Personal access tokens](https://github.com/settings/tokens))
 
 to update to the last stable version, stop the bot and execute:
@@ -38,6 +44,19 @@ to update to the last stable version, stop the bot and execute:
 git fetch && git checkout main
 git pull origin main
 git checkout $( git tag --list --sort=v:refname | tail -n 1 )
+```
+
+to setup the bot, run it, and be able to leave the shell without it terminating:
+
+```bash
+./bin.sh setup
+tmux new -d -s librarian "./bin.sh run --config /path/to/config"
+```
+
+to stop it:
+
+```bash
+tmux kill-session -t librarian
 ```
 
 ## maintenance
