@@ -38,7 +38,9 @@ I'm considering providing it as a service, but there's a long way to go. for now
     create a modified version of `config/config.example.yaml` and fill in whatever data you need
 4. to benefit from GitHub's extended API limits, query it using an API token (get one at [Personal access tokens](https://github.com/settings/tokens))
 
-to update to the last stable version, stop the bot and execute:
+## maintenance
+
+to update to the last stable version (make sure to stop the bot beforehand):
 
 ```bash
 git fetch && git checkout main
@@ -59,19 +61,18 @@ to stop it:
 tmux kill-session -t librarian
 ```
 
-## maintenance
-
-use `bin.sh` from the source directory:
+for anything else, use `bin.sh` from the source directory:
 
 ```bash
 ./bin.sh setup  # install all dependencies
-./bin.sh run --config /path/to/config.yaml  # takeoff in 5, 4, 3...
+./bin.sh run --config /path/to/config.yaml  # start the bot
 ./bin.sh clean  # remove virtual environment and Python bytecode cache
 ./bin.sh test  # run unit tests with pytest
-./bin.sh test -x -k TestDiscordCommands  # stop on first failure of a subset
+./bin.sh test -x -k TestDiscordCommands  # stop on the first failure of a test suite
 ./bin.sh coverage  # generate coverage data
 ./bin.sh cov  # print coverage stats in terminal
 ./bin.sh hcov  # render and open a nice HTML with coverage stats
+./bin.sh db --config /path/to/config upgrade head  # run available schema migrations
 ```
 
 if anything goes wrong, make extensive use of a runtime log located at `{runtime}/librarian.log`
