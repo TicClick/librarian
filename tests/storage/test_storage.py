@@ -9,7 +9,8 @@ from librarian.storage import base
 
 class TestBasics:
     def test__init(self, storage):
-        models = inspect.getmembers(stg, predicate=lambda cls: isinstance(cls, base.Base))
+        models = inspect.getmembers(stg, predicate=lambda cls: inspect.isclass(cls) and issubclass(cls, base.Base))
+        assert models
         for _, model in models:
             assert storage.engine.has_table(model.__tablename__)
 
