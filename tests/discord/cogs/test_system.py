@@ -3,7 +3,7 @@ import pytest
 from librarian.discord.cogs import system
 
 
-class TestDiscordCommands:
+class TestSystemCog:
     async def test__report_status(self, client, make_context):
         ctx = make_context()
         system_cog = client.get_cog(system.System.__name__)

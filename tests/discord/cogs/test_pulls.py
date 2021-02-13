@@ -51,7 +51,7 @@ class TestCountArgparser:
                 assert end == parsed_end
 
 
-class TestPulls:
+class TestPullsCog:
     @pytest.mark.freeze_time
     async def test__count(self, client, storage, existing_pulls, make_context):
         storage.pulls.save_many_from_payload(existing_pulls)
