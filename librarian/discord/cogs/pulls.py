@@ -8,7 +8,6 @@ from librarian.discord import (
     formatters,
     utils,
 )
-from librarian.discord.cogs import decorators
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class CountArgparser:
 
 
 class Pulls(commands.Cog):
-    @decorators.public_command()
+    @commands.command()
     async def count(self, ctx: commands.Context, *args):
         """
         pull requests merged within a time span
