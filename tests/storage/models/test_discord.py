@@ -68,3 +68,30 @@ class TestDiscordUsers:
         storage.discord.demote_users(1, 1234, 12345)
         assert not storage.discord.custom_promoted_users(1)
         assert storage.discord.custom_promoted_users(1001) == {123, 1234, 12345}
+
+
+class TestDiscordChannels:
+    def test__channel_settings(self, storage):
+        assert not storage.discord.all_channels_settings()
+        assert not storage.discord.load_channel_settings(1234)
+
+        payload = (
+            (12345, 1, {"store_in_pins": True, "whatever-setting": "abc1234"}),
+            (12346, 1, {"non": "sense", "1234": 5678, "910": [11, 12]}),
+            (12347, 2, {}),
+        )
+        for i, (channel_id, guild_id, settings) in enumerate(payload):
+            storage.discord.save_channel_settings(channel_id, guild_id, settings)
+            item = storage.discord.load_channel_settings(channel_id)
+            assert item.settings == settings
+            assert item.id == channel_id
+            assert item.guild_id == guild_id
+
+            assert len(storage.discord.all_channels_settings()) == i + 1
+
+        new_settings = {"store_in_pins": False}
+        storage.discord.save_channel_settings(12345, 1, new_settings)
+        assert len(storage.discord.all_channels_settings()) == len(payload)
+        assert storage.discord.load_channel_settings(12345).settings == new_settings
+        storage.discord.save_channel_settings(12345, 1, {})
+        assert storage.discord.load_channel_settings(12345).settings == {}

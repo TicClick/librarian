@@ -26,7 +26,7 @@ class Bool(BaseSetting):
             return False
 
     def cast(self):
-        return [False, True][distutils.util.strtobool(self.value)]
+        return self.value if isinstance(self.value, bool) else distutils.util.strtobool(self.value)
 
 
 class String(BaseSetting):

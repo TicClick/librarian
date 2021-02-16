@@ -84,3 +84,17 @@ class DiscordHelper(base.Helper):
         """ Return all known messages that are tied to the specified pulls. """
         with self.session_scope() as s:
             return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()
+
+    def all_channels_settings(self):
+        with self.session_scope() as s:
+            return s.query(DiscordChannel).all()
+
+    def load_channel_settings(self, channel_id):
+        with self.session_scope() as s:
+            return s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).first()
+
+    def save_channel_settings(self, channel_id, guild_id, all_settings):
+        with self.session_scope() as s:
+            updated = s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).update({"settings": all_settings})
+            if not updated:
+                s.add(DiscordChannel(id=channel_id, guild_id=guild_id, settings=all_settings))
