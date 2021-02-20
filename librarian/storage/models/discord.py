@@ -98,3 +98,7 @@ class DiscordHelper(base.Helper):
             updated = s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).update({"settings": all_settings})
             if not updated:
                 s.add(DiscordChannel(id=channel_id, guild_id=guild_id, settings=all_settings))
+
+    def delete_channel_settings(self, channel_id):
+        with self.session_scope() as s:
+            s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).delete()

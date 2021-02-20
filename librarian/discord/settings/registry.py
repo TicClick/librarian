@@ -63,6 +63,12 @@ class Registry:
             if updated:
                 self.helper.save_channel_settings(channel_id, guild_id, channel_settings)
 
+    async def reset(self, channel_id):
+        async with self.__lock:
+            if channel_id in self.__cache:
+                self.helper.delete_channel_settings(channel_id)
+                del self.__cache[channel_id]
+
     async def get(self, channel_id):
         async with self.__lock:
-            return self.__cache[int(channel_id)]
+            return self.__cache[channel_id]

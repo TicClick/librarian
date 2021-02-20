@@ -95,3 +95,8 @@ class TestDiscordChannels:
         assert storage.discord.load_channel_settings(12345).settings == new_settings
         storage.discord.save_channel_settings(12345, 1, {})
         assert storage.discord.load_channel_settings(12345).settings == {}
+
+        for channel_id in (12345, 12346, 12347):
+            storage.discord.delete_channel_settings(channel_id)
+            assert storage.discord.load_channel_settings(channel_id) is None
+        storage.discord.delete_channel_settings(12345)

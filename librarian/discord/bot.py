@@ -17,6 +17,7 @@ from librarian.discord.cogs.background import (
     base,
     github as github_cogs,
 )
+from librarian.discord.settings import registry
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class Client(commands.Bot):
         self.assignee_login = assignee_login
         self.store_in_pins = store_in_pins
 
+        self.settings = registry.Registry(self.storage.discord)
         self.language = languages.LanguageMeta.get(language_code)
 
         super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)

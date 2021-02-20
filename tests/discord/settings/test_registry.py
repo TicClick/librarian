@@ -92,3 +92,17 @@ class TestRegistry:
         ):
             with pytest.raises(ValueError):
                 await r.update(1234, 1, payload)
+
+    async def test__reset(self, storage, mocker):
+        r = registry.Registry(storage.discord)
+        await r.reset(1234)
+
+        dummy = {"store_in_pins": False, "language": "ru"}
+        storage.discord.save_channel_settings(12345, 67890, dummy)
+
+        rr = registry.Registry(storage.discord)
+        assert await rr.get(12345) == dummy
+
+        await rr.reset(12345)
+        assert await rr.get(12345) == rr.default_settings()
+        assert storage.discord.load_channel_settings(12345) is None
