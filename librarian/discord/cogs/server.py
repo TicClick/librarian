@@ -67,14 +67,14 @@ class Server(commands.Cog):
             await ctx.bot.settings.update(
                 ctx.message.channel.id, ctx.message.channel.guild.id, args
             )
-            return ctx.message.channel.send(content="done")
+            return await ctx.message.channel.send(content="done")
         except ValueError as e:
             reply = f"input error: {e}. try `.help {Server.set.name}` instead"
-            return ctx.message.channel.send(content=reply)
+            return await ctx.message.channel.send(content=reply)
         except Exception:
             logger.exception(f"Failed to process {ctx.message.content} from user #{ctx.message.author.id}")
             reply = "unexpected error, can't do that. ask the bot's owner to investigate"
-            return ctx.message.channel.send(content=reply)
+            return await ctx.message.channel.send(content=reply)
 
     @commands.command(name="reset")
     @helpers.is_promoted()

@@ -7,6 +7,57 @@ from librarian.discord.settings import (
 )
 
 
+class TestChannelCache:
+    def test__channel_add(self, loop):
+        cache = registry.ChannelCache()
+        assert not cache
+        with pytest.raises(KeyError):
+            cache["en"]
+
+        cache.add_channel(1, "ru")
+        cache.add_channel(2, "ru")
+        cache.add_channel(2, "en")
+
+        assert set(cache.keys()) == {"en", "ru"}
+        assert cache["en"].channels == {2}
+        assert cache["ru"].channels == {1, 2}
+        assert cache["ru"].language.random_highlight
+
+        cache.add_channel(1, None)
+        assert None not in cache
+
+    def test__channel_discard(self, loop):
+        cache = registry.ChannelCache()
+        cache.add_channel(1, "ru")
+        cache.add_channel(2, "ru")
+        cache.add_channel(2, "en")
+
+        cache.discard_channel(1, "jp")
+        cache.discard_channel(1, None)
+        cache.discard_channel(3, "whatever")
+        cache.discard_channel(3, None)
+
+        assert set(cache.keys()) == {"en", "ru"}
+
+        cache.discard_channel(1, "ru")
+        assert "ru" in cache and cache["ru"].channels == {2}
+        cache.discard_channel(2, "ru")
+        assert cache["en"].channels == {2}
+        cache.discard_channel(2, "en")
+        assert not cache
+
+    async def test__channel_update(self, loop):
+        cache = registry.ChannelCache()
+        await cache.update_channel_language(1, None, None)
+        assert not cache
+
+        await cache.update_channel_language(1, "ru", "en")
+        assert set(cache.keys()) == {"en"} and cache["en"].channels == {1}
+
+        await cache.update_channel_language(1, "en", "ru")
+        assert set(cache.keys()) == {"ru"} and cache["ru"].channels == {1}
+
+
 class TestRegistry:
     def test__properties(self):
         assert registry.Registry.KNOWN_SETTINGS == {
@@ -27,6 +78,7 @@ class TestRegistry:
         storage.discord.save_channel_settings(12345, 67890, dummy)
 
         rr = registry.Registry(storage.discord)
+        assert 12345 in rr.channels_by_language["ru"].channels
         storage.session_scope = mocker.Mock()
         storage.discord.session_scope = mocker.Mock()
         storage.discord.load_channel_settings = mocker.Mock()
@@ -97,6 +149,11 @@ class TestRegistry:
             await r.update(911, 1, ["language", "ru", "nonsense", "1234", "store_in_pins", False])
         assert await r.get(911) == r.default_settings()
 
+        assert 1234 in r.channels_by_language["ru"].channels
+        await r.update(1234, 1, ["language", "en"])
+        assert list(r.channels_by_language.keys()) == ["en"]
+        assert 1234 in r.channels_by_language["en"].channels
+
     async def test__reset(self, storage, mocker):
         r = registry.Registry(storage.discord)
         await r.reset(1234)
@@ -106,7 +163,9 @@ class TestRegistry:
 
         rr = registry.Registry(storage.discord)
         assert await rr.get(12345) == dummy
+        assert 12345 in rr.channels_by_language["ru"].channels
 
         await rr.reset(12345)
         assert await rr.get(12345) == rr.default_settings()
         assert storage.discord.load_channel_settings(12345) is None
+        assert "ru" not in rr.channels_by_language
