@@ -1,6 +1,7 @@
 import re
 
 from librarian.discord.settings import base
+from librarian.discord import languages
 
 
 class StoreInPins(base.Bool):
@@ -14,11 +15,23 @@ class Language(base.String):
         "pl", "pt", "pt-br", "ro", "ru", "sk", "sv", "th", "tr", "uk", "vi", "zh", "zh-tw",
     ))
 
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.__language = None
+
     def check(self):
         return super().check() and super().cast().lower() in self.__whitelisted
 
     def cast(self):
         return super().cast().lower()
+
+    def __getattr__(self, name):
+        if self.__language is None:
+            if self.check():
+                self.__language = languages.LanguageMeta.get(self.cast())
+            else:
+                raise ValueError("trying to access features of a non-existent language")
+        return getattr(self.__language, name)
 
 
 class ReviewerRole(base.Int):

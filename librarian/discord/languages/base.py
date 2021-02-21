@@ -39,6 +39,9 @@ class LanguageMeta(type):
 
         return mcs.__regex
 
+    def match(mcs, line):
+        return mcs.title_regex.match(line)
+
     @property
     def random_highlight(mcs):
         return random.choice(mcs.highlights)
