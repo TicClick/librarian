@@ -32,11 +32,13 @@ class TestPull:
                 assert real_state == formatters.PullState.by_name(p["state"])
 
 
-class TestUser:
+class TestHighlighter:
     def test__basic(self):
-        assert formatters.UserFormatter.chain((1, 2)) == "<@1>, <@2>"
-        assert formatters.UserFormatter.chain((1, 2, 3), separator=" | ") == "<@1> | <@2> | <@3>"
+        assert formatters.Highlighter.chain_users((1, 2)) == "<@1>, <@2>"
+        assert formatters.Highlighter.chain_users((1, 2, 3), separator=" | ") == "<@1> | <@2> | <@3>"
 
         user_cls = collections.namedtuple("User", "id name")
         users = [user_cls(1, "test"), user_cls(2, "user")]
-        assert formatters.UserFormatter.chain(users) == "<@1>, <@2>"
+        assert formatters.Highlighter.chain_users(users) == "<@1>, <@2>"
+
+        assert formatters.Highlighter.role(1234) == "<@&1234>"

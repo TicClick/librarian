@@ -102,10 +102,17 @@ class PullFormatter:
         return embed
 
 
-class UserFormatter:
+class Highlighter:
+    @staticmethod
+    def cast(obj):
+        return obj if isinstance(obj, int) else obj.id
+
     @classmethod
-    def chain(cls, users, separator=", "):
+    def role(cls, obj):
+        return "<@&{}>".format(cls.cast(obj))
+
+    @classmethod
+    def chain_users(cls, users, separator=", "):
         return separator.join(
-            "<@{}>".format(_ if isinstance(_, int) else _.id)
-            for _ in users
+            "<@{}>".format(cls.cast(_)) for _ in users
         )

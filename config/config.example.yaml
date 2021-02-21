@@ -7,10 +7,6 @@ github:
 
 discord:
   token: "abc.def.ghi"  # bot token from https://discord.com/developers/applications
-  review_channel: 67890
-  review_role_id: 12345
-  language_code: "ru"
-  store_in_pins: true
 
 runtime:
   dir: /home/username/discord-bot/runtime

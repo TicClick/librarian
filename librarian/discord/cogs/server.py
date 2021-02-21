@@ -19,7 +19,7 @@ class Server(commands.Cog):
         if ctx.message.mentions:
             promoted = helper.promote_users(ctx.message.channel.guild.id, *[_.id for _ in ctx.message.mentions])
             if promoted:
-                reply = "{} can change my settings on the server".format(formatters.UserFormatter.chain(promoted))
+                reply = "{} can change my settings on the server".format(formatters.Highlighter.chain_users(promoted))
             else:
                 reply = "all mentioned users are already promoted"
             return await ctx.message.channel.send(content=reply)
@@ -34,7 +34,7 @@ class Server(commands.Cog):
             demoted = helper.demote_users(ctx.message.channel.guild.id, *[_.id for _ in ctx.message.mentions])
             if demoted:
                 reply = "{} can **not** change my settings on the server".format(
-                    formatters.UserFormatter.chain(demoted)
+                    formatters.Highlighter.chain_users(demoted)
                 )
             else:
                 reply = "none of mentioned users had access"
@@ -52,7 +52,7 @@ class Server(commands.Cog):
 
         if entity == "promoted":
             allowed = await helpers.promoted_users(ctx)
-            reply = "users that can edit settings: {}".format(formatters.UserFormatter.chain(allowed))
+            reply = "users that can edit settings: {}".format(formatters.Highlighter.chain_users(allowed))
 
         elif entity == "settings":
             settings = await ctx.bot.settings.get(ctx.message.channel.id)

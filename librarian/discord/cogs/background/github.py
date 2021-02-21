@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import itertools as it
 import logging
 
@@ -72,7 +73,6 @@ class MonitorPulls(base.BackgroundCog):
     def __init__(self, bot, *args, **kwargs):
         super().__init__(bot, *args, **kwargs)
         self.assignee_login = bot.assignee_login
-        self.title_regex = bot.language.title_regex
 
     async def act_on_pulls(self, pulls):
         selected_pulls = [
@@ -87,34 +87,24 @@ class MonitorPulls(base.BackgroundCog):
             )
             await self.add_assignee(selected_pulls)
 
-        messages = {
-            pull.number: pull.discord_messages[0] if pull.discord_messages else None
-            for pull in pulls if
-            pull.number > self.CUTOFF_PULL_NUMBER
-        }
-        if messages:
-            logger.info("%s: updating %d messages", self.name, len(messages))
-            await self.update_messages(pulls, messages)
+    async def update_pull_status(self, pull, channel_id):
+        if pull.number <= self.CUTOFF_PULL_NUMBER:
+            return
 
-    async def update_messages(self, pulls, messages):
-        logger.info(
-            "%s: updating Discord messages for %d pulls: %s",
-            self.name, len(pulls), sorted(_.number for _ in pulls)
-        )
+        message = pull.discord_messages[0] if pull.discord_messages else None
+        logger.info("%s: updating Discord message for pull %s in channel #%s", self.name, pull.number, channel_id)
         new_messages = []
-        for pull in pulls:
-            message = messages.get(pull.number)
-            channel_id, message_id = None, None
-            if message is not None:
-                channel_id = message.channel_id
-                message_id = message.id
-            new_channel_id, new_message_id = await self.bot.post_update(pull, channel_id, message_id)
-            if message_id is None:
-                new_messages.append(storage.DiscordMessage(
-                    id=new_message_id,
-                    channel_id=new_channel_id,
-                    pull_number=pull.number
-                ))
+        message_id = None
+        if message is not None:
+            channel_id = message.channel_id
+            message_id = message.id
+        new_channel_id, new_message_id = await self.bot.post_update(pull, channel_id, message_id)
+        if message_id is None:
+            new_messages.append(storage.DiscordMessage(
+                id=new_message_id,
+                channel_id=new_channel_id,
+                pull_number=pull.number
+            ))
         self.storage.discord.save_messages(*new_messages)
 
     async def add_assignee(self, pulls):
@@ -217,20 +207,21 @@ class MonitorPulls(base.BackgroundCog):
             saved = self.storage.pulls.save_many_from_payload(to_save, s=db_session)
             saved_numbers = {_.number for _ in saved}
 
-        def worth_updating():
+        for item in self.bot.settings.channels_by_language.values():
+            language, channels = item.language, item.channels
             for pull in saved:
-                if self.title_regex.match(pull.title) and pull.number in all_to_fetch:
-                    yield pull
+                if language.match(pull.title) and pull.number in all_to_fetch:
+                    for channel_id in channels:
+                        self.update_pull_status(pull, channel_id)
 
             for pull in cached_active_pulls.values():
                 if (
-                    self.title_regex.match(pull.title) and
+                    language.match(pull.title) and
                     pull.number not in saved_numbers and
                     not pull.discord_messages
                 ):
-                    yield pull
-
-        await self.act_on_pulls(list(worth_updating()))
+                    for channel_id in channels:
+                        self.update_pull_status(pull, channel_id)
 
     async def status(self):
         return {}

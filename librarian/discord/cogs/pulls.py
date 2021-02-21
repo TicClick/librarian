@@ -5,9 +5,10 @@ import discord
 from discord.ext import commands
 
 from librarian.discord import (
-    formatters,
+    formatters, languages,
     utils,
 )
+from librarian.discord.settings import custom
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ class Pulls(commands.Cog):
         .count <from> <to>: anything between these two. example: 2020-08 2020-10-01
         """
 
+        settings = await ctx.bot.settings.get(ctx.message.channel.id)
+        lcode = settings.get(custom.Language.name)
+        if lcode is None:
+            reply = "no language set for this channel -- see `.help set` on how to do that"
+            return await ctx.message.channel.send(content=reply)
+
+        language = languages.LanguageMeta.get(lcode)
         try:
             start_date, end_date = CountArgparser.parse(args)
         except ValueError:
@@ -62,16 +70,16 @@ class Pulls(commands.Cog):
 
         pulls = ctx.bot.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
         pulls = sorted(
-            filter(lambda p: ctx.bot.language.title_regex.match(p.title), pulls),
+            filter(lambda p: language.match(p.title), pulls),
             key=lambda p: p.merged_at
         )
         logger.debug(
-            "Interesting pulls in [%s, %s): %s",
-            start_date, end_date, " ".join(str(_.number) for _ in pulls)
+            "Pulls for %s in [%s, %s): %s",
+            lcode, start_date, end_date, " ".join(str(_.number) for _ in pulls)
         )
 
         date_range = "[{}, {}]".format(start_date.date(), end_date.date())
-        msg = "{} pulls merged during {}".format(len(pulls), date_range)
+        msg = "{} pulls with `{}` language code merged during {}".format(len(pulls), lcode, date_range)
 
         if not pulls:
             return await ctx.message.channel.send(content=msg)

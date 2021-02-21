@@ -57,10 +57,6 @@ def configure_client(config):
         github=github_api,
         storage=db,
         assignee_login=config["github"]["assignee_login"],
-        review_channel=config["discord"]["review_channel"],
-        review_role_id=config["discord"]["review_role_id"],
-        language_code=config["discord"]["language_code"],
-        store_in_pins=config["discord"]["store_in_pins"],
     )
 
     client.setup()

@@ -135,11 +135,10 @@ def storage(dbpath):
 
 
 @pytest.fixture
-def client(mock_github, storage, repo, gh_token, language_code, assignee_login):
+def client(mock_github, storage, repo, gh_token, assignee_login):
     bot = librarian.discord.Client(
         github=librarian.github.GitHub(repo, gh_token),
         storage=storage,
-        language_code=language_code,
         assignee_login=assignee_login,
     )
     bot.setup()

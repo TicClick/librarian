@@ -3,6 +3,7 @@ import random
 import arrow
 import pytest
 
+from librarian.discord import languages
 from librarian.discord.cogs import pulls
 
 
@@ -53,7 +54,7 @@ class TestCountArgparser:
 
 class TestPullsCog:
     @pytest.mark.freeze_time
-    async def test__count(self, client, storage, existing_pulls, make_context):
+    async def test__count(self, client, storage, existing_pulls, make_context, language_code):
         storage.pulls.save_many_from_payload(existing_pulls)
         merged_only = [_ for _ in existing_pulls if _["merged"]]
 
@@ -69,11 +70,14 @@ class TestPullsCog:
 
             yield ["1900-01-01", "2000-01-01"]
 
+        await client.settings.update(1, 2, ["language", language_code])
         for args in args_maker():
             # tested with test__date_range
             start, end = pulls.CountArgparser.parse(args)
 
             ctx = make_context()
+            ctx.message.channel.id = 1
+            ctx.message.channel.guild.id = 2
             Pulls = client.get_cog(pulls.Pulls.__name__)
             await Pulls.count(ctx, *args)
 
@@ -86,12 +90,13 @@ class TestPullsCog:
             first_message = ctx.message.channel.send.call_args_list[0].kwargs["content"]
             cnt = int(first_message.split(" ")[0])
 
+            language = languages.LanguageMeta.get(language_code)
             merged = [
                 _
                 for _ in merged_only if
                 (
                     start <= arrow.get(_["merged_at"]) < end and
-                    client.language.title_regex.match(_["title"])
+                    language.match(_["title"])
                 )
             ]
             assert len(merged) == cnt, (", ".join(_["merged_at"] for _ in merged), start, end)
@@ -106,8 +111,12 @@ class TestPullsCog:
             ["2020-01-01", "2020-01-02", "2020-01-03"],
         ]
     )
-    async def test__bad_count(self, client, make_context, args):
+    async def test__bad_count(self, client, make_context, args, language_code):
         ctx = make_context()
+        ctx.message.channel.id = 1
+        ctx.message.channel.guild.id = 2
+        await client.settings.update(1, 2, ["language", language_code])
+
         Pulls = client.get_cog(pulls.Pulls.__name__)
         await Pulls.count(ctx, *args)
         assert ctx.send_help.call_args.args[0] == "count"
