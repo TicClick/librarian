@@ -93,6 +93,10 @@ class TestRegistry:
             with pytest.raises(ValueError):
                 await r.update(1234, 1, payload)
 
+        with pytest.raises(ValueError):
+            await r.update(911, 1, ["language", "ru", "nonsense", "1234", "store_in_pins", False])
+        assert await r.get(911) == r.default_settings()
+
     async def test__reset(self, storage, mocker):
         r = registry.Registry(storage.discord)
         await r.reset(1234)

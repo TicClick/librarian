@@ -53,14 +53,16 @@ class Registry:
     async def update(self, channel_id, guild_id, args):
         updated = False
         async with self.__lock:
+            channel_settings = self.__cache[channel_id]
+            updated = {}
             for setting in self.wrap(args):
                 casted = setting.cast()
-                channel_settings = self.__cache[channel_id]
                 if channel_settings.get(setting.name) != casted:
-                    channel_settings[setting.name] = casted
-                    updated = True
+                    updated[setting.name] = casted
 
             if updated:
+                channel_settings.update(updated)
+                self.__cache[channel_id] = channel_settings
                 self.helper.save_channel_settings(channel_id, guild_id, channel_settings)
 
     async def reset(self, channel_id):

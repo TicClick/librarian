@@ -1,7 +1,6 @@
 import json
 import logging
 
-import discord.message
 from discord.ext import commands
 
 from librarian.discord import formatters
