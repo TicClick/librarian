@@ -16,9 +16,22 @@ class BaseSetting(metaclass=abc.ABCMeta):
     def cast(self):
         pass
 
+    def __eq__(self, rhs):
+        if isinstance(rhs, type(self)):
+            return self.cast() == rhs.cast()
+
+        value = type(self)(rhs)
+        return value.check() and self.cast() == value.cast()
+
+    def __ne__(self, rhs):
+        return not self.__eq__(rhs)
+
 
 class Bool(BaseSetting):
     def check(self):
+        if isinstance(self.value, bool):
+            return True
+
         try:
             distutils.util.strtobool(self.value)
             return True

@@ -54,11 +54,12 @@ class ReviewerRole(base.Int):
     __mask = re.compile(r"<@&(?P<id>\d+)>")
 
     def check(self):
-        try:
-            super().check()
+        if super().check():
             return True
-        except ValueError:
+        try:
             return self.__mask.match(self.value)
+        except TypeError:
+            return False
 
     def cast(self):
         try:

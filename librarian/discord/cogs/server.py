@@ -73,7 +73,7 @@ class Server(commands.Cog):
             reply = "users that can edit settings: {}".format(formatters.Highlighter.chain_users(allowed))
 
         elif entity == "settings":
-            settings = await ctx.bot.settings.get(ctx.message.channel.id)
+            settings = await ctx.bot.settings.get(ctx.message.channel.id, raw=True)
             reply = formatters.codewrap(json.dumps(settings, indent=self.SETTINGS_INDENT))
 
         return await ctx.message.channel.send(content=reply)

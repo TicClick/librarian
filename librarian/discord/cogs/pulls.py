@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from librarian.discord import (
-    formatters, languages,
+    formatters,
     utils,
 )
 from librarian.discord.settings import custom
@@ -57,13 +57,12 @@ class Pulls(commands.Cog):
         """
 
         settings = await ctx.bot.settings.get(ctx.message.channel.id)
-        # FIXME: use optional language code parameter
-        lcode = settings.get(custom.Language.name)
-        if lcode is None:
+        # TODO: use optional language code parameter
+        language = settings.get(custom.Language.name)
+        if language is None:
             reply = "no language set for this channel -- see `.help set` on how to do that"
             return await ctx.message.channel.send(content=reply)
 
-        language = languages.LanguageMeta.get(lcode)
         try:
             start_date, end_date = CountArgparser.parse(args)
         except ValueError:
@@ -76,11 +75,11 @@ class Pulls(commands.Cog):
         )
         logger.debug(
             "Pulls for %s in [%s, %s): %s",
-            lcode, start_date, end_date, " ".join(str(_.number) for _ in pulls)
+            language.code, start_date, end_date, " ".join(str(_.number) for _ in pulls)
         )
 
         date_range = "[{}, {}]".format(start_date.date(), end_date.date())
-        msg = "{} pulls with `{}` language code merged during {}".format(len(pulls), lcode, date_range)
+        msg = "{} pulls with `{}` language code merged during {}".format(len(pulls), language.code, date_range)
 
         if not pulls:
             return await ctx.message.channel.send(content=msg)

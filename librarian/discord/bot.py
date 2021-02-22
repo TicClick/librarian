@@ -4,10 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
-from librarian.discord import (
-    formatters,
-    languages,
-)
+from librarian.discord import formatters
 from librarian.discord.cogs import (
     pulls,
     server,
@@ -72,10 +69,9 @@ class Client(commands.Bot):
         content = ""
         reviewer_role = channel_settings.get(custom.ReviewerRole)
         if reviewer_role:
-            content = "{}, ".format(formatters.Highlighter.role(reviewer_role))
+            content = "{}, ".format(formatters.Highlighter.role(reviewer_role.cast()))
 
-        # FIXME: store language object in there somehow
-        language = languages.LanguageMeta.get(channel_settings[custom.Language.name])
+        language = channel_settings[custom.Language.name]
         content += language.random_highlight
         embed = formatters.PullFormatter.make_embed_for(pull, self.github.repo)
 
@@ -100,7 +96,7 @@ class Client(commands.Bot):
                 logger.debug("Updating existing message #%s", message_id)
                 await message.edit(embed=embed)
 
-        if channel_settings.get(custom.PinMessages.name):
+        if channel_settings.get(custom.PinMessages.name).cast():
             try:
                 if pull.state == formatters.PullState.CLOSED.name:
                     await message.unpin()

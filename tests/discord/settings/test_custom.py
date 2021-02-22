@@ -12,7 +12,7 @@ class TestCustomSettings:
             assert issubclass(cls, base.BaseSetting)
             assert cls.name is not None and cls.name == cls.name.lower()
 
-    def test__store_in_pins(self, bool_casts):
+    def test__pin_messages(self, bool_casts):
         for in_, out in bool_casts:
             instance = custom.PinMessages(in_)
             assert instance.check() and instance.cast() == out

@@ -9,13 +9,13 @@ class TestBaseSettings:
         [
             (
                 base.Bool,
-                ["0", "1", "true", "True", "TRue", "false", "FALse", "False"],
-                [0, 1, 2, True, False, "2", None, "nonsense"]
+                ["0", "1", True, False, "true", "True", "TRue", "false", "FALse", "False"],
+                [0, 1, 2, -1, "2", None, "nonsense"]
             ),
             (
                 base.String,
                 ["1", "100" * 30, "0", "\ntest       "],
-                ["", " ", "\n", "\t", 0.1, 0]
+                ["", " ", None, "\n", "\t", 0.1, 0]
             ),
             (
                 base.Int,
@@ -26,9 +26,9 @@ class TestBaseSettings:
     )
     def test__check(self, checker, good, bad):
         for val in good:
-            assert checker(val).check()
+            assert checker(val).check(), "should be correct: {!r}".format(val)
         for val in bad:
-            assert not checker(val).check()
+            assert not checker(val).check(), "should be incorrect: {!r}".format(val)
 
     def test__casts(self, bool_casts, string_casts, int_casts):
         for cls, cases in (
@@ -39,3 +39,5 @@ class TestBaseSettings:
             for in_, out in cases:
                 instance = cls(in_)
                 assert instance.check() and instance.cast() == out
+                assert instance == in_ and in_ == instance
+                assert not (instance != in_)

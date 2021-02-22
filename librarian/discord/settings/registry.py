@@ -10,7 +10,6 @@ from librarian.discord.settings import (
     custom,
 )
 
-
 LanguageEntry = collections.namedtuple("LanguageEntry", "language channels")
 
 
@@ -19,25 +18,27 @@ class ChannelCache(dict):
         super().__init__(*a, **kw)
         self.__lock = asyncio.Lock()
 
-    def add_channel(self, channel_id, code):
-        if code is None:
+    def add_channel(self, channel_id, language):
+        if language is None:
             return
+        code = language.code
         if code not in self:
-            self[code] = LanguageEntry(language=languages.LanguageMeta.get(code), channels=set())
+            self[code] = LanguageEntry(language=language, channels=set())
         self[code].channels.add(channel_id)
 
-    def discard_channel(self, channel_id, code):
-        if code is None:
+    def discard_channel(self, channel_id, language):
+        if language is None:
             return
+        code = language.code
         if code in self:
             self[code].channels.discard(channel_id)
             if not self[code].channels:
                 del self[code]
 
-    async def update_channel_language(self, channel_id, previous_code, present_code):
+    async def update_channel_language(self, channel_id, prev_language, current_language):
         async with self.__lock:
-            self.discard_channel(channel_id, previous_code)
-            self.add_channel(channel_id, present_code)
+            self.discard_channel(channel_id, prev_language)
+            self.add_channel(channel_id, current_language)
 
 
 class Registry:
@@ -56,17 +57,22 @@ class Registry:
         self.helper = helper
 
         for channel in self.helper.all_channels_settings():
-            self.__cache[channel.id] = channel.settings
+            self.__cache[channel.id] = {
+                k: self.KNOWN_SETTINGS[k](v)
+                for k, v in channel.settings.items()
+            }
+
             try:
                 language_code = channel.settings[custom.Language.name]
-                self.channels_by_language.add_channel(channel.id, language_code)
+                language = languages.LanguageMeta.get(language_code)
+                self.channels_by_language.add_channel(channel.id, language)
             except KeyError:
                 pass  # skip a channel if it has no language settings yet
 
     @classmethod
     def default_settings(cls):
         return {
-            custom.PinMessages.name: True,
+            custom.PinMessages.name: custom.PinMessages(True),
         }
 
     def wrap(self, tokens):
@@ -96,9 +102,8 @@ class Registry:
             updated = {}
             settings = list(self.wrap(args))
             for setting in settings:
-                casted = setting.cast()
-                if channel_settings.get(setting.name) != casted:
-                    updated[setting.name] = casted
+                if channel_settings.get(setting.name) != setting:
+                    updated[setting.name] = setting
 
             if updated:
                 try:
@@ -112,7 +117,8 @@ class Registry:
 
                 channel_settings.update(updated)
                 self.__cache[channel_id] = channel_settings
-                self.helper.save_channel_settings(channel_id, guild_id, channel_settings)
+                raw_settings = await self.get(channel_id, raw=True)
+                self.helper.save_channel_settings(channel_id, guild_id, raw_settings)
                 return settings
 
             return []
@@ -130,9 +136,11 @@ class Registry:
                 self.helper.delete_channel_settings(channel_id)
                 del self.__cache[channel_id]
 
-    async def get(self, channel_id):
-        async with self.__lock:
-            return self.__cache[channel_id]
+    async def get(self, channel_id, raw=False):
+        settings = self.__cache[channel_id]
+        if raw:
+            settings = {k: v.cast() for k, v in settings.items()}
+        return settings
 
 
 SettingHelp = collections.namedtuple("SettingHelp", "name trivia rest")

@@ -11,12 +11,14 @@ class TestChannelCache:
     def test__channel_add(self, loop):
         cache = registry.ChannelCache()
         assert not cache
+
+        en, ru = map(custom.Language, ("en", "ru"))
         with pytest.raises(KeyError):
             cache["en"]
 
-        cache.add_channel(1, "ru")
-        cache.add_channel(2, "ru")
-        cache.add_channel(2, "en")
+        cache.add_channel(1, ru)
+        cache.add_channel(2, ru)
+        cache.add_channel(2, en)
 
         assert set(cache.keys()) == {"en", "ru"}
         assert cache["en"].channels == {2}
@@ -28,22 +30,22 @@ class TestChannelCache:
 
     def test__channel_discard(self, loop):
         cache = registry.ChannelCache()
-        cache.add_channel(1, "ru")
-        cache.add_channel(2, "ru")
-        cache.add_channel(2, "en")
+        en, ru, ja = map(custom.Language, ("en", "ru", "ja"))
+        cache.add_channel(1, ru)
+        cache.add_channel(2, ru)
+        cache.add_channel(2, en)
 
-        cache.discard_channel(1, "jp")
+        cache.discard_channel(1, ja)
         cache.discard_channel(1, None)
-        cache.discard_channel(3, "whatever")
         cache.discard_channel(3, None)
 
         assert set(cache.keys()) == {"en", "ru"}
 
-        cache.discard_channel(1, "ru")
+        cache.discard_channel(1, ru)
         assert "ru" in cache and cache["ru"].channels == {2}
-        cache.discard_channel(2, "ru")
+        cache.discard_channel(2, ru)
         assert cache["en"].channels == {2}
-        cache.discard_channel(2, "en")
+        cache.discard_channel(2, en)
         assert not cache
 
     async def test__channel_update(self, loop):
@@ -51,10 +53,11 @@ class TestChannelCache:
         await cache.update_channel_language(1, None, None)
         assert not cache
 
-        await cache.update_channel_language(1, "ru", "en")
+        en, ru, jp = map(custom.Language, ("en", "ru", "jp"))
+        await cache.update_channel_language(1, ru, en)
         assert set(cache.keys()) == {"en"} and cache["en"].channels == {1}
 
-        await cache.update_channel_language(1, "en", "ru")
+        await cache.update_channel_language(1, en, ru)
         assert set(cache.keys()) == {"ru"} and cache["ru"].channels == {1}
 
 
