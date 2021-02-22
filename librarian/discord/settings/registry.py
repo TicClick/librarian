@@ -2,6 +2,7 @@ import asyncio
 import collections
 import inspect
 import itertools
+import textwrap
 
 from librarian.discord import languages
 from librarian.discord.settings import (
@@ -132,3 +133,23 @@ class Registry:
     async def get(self, channel_id):
         async with self.__lock:
             return self.__cache[channel_id]
+
+
+SettingHelp = collections.namedtuple("SettingHelp", "name trivia rest")
+
+
+def parameters_docs():
+    for _, cls in sorted(Registry.KNOWN_SETTINGS.items()):
+        if cls.__doc__ is None:
+            yield SettingHelp(cls.name, "no documentation", [])
+        else:
+            doc = textwrap.dedent(cls.__doc__).strip().splitlines()
+            yield SettingHelp(cls.name, doc[0], doc[1:])
+
+
+def parameters_combined_docs():
+    for item in parameters_docs():
+        yield "- {}: {}".format(item.name, item.trivia)
+        padding = " " * 4
+        for line in item.rest:
+            yield padding + line

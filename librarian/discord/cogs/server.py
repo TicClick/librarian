@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from librarian.discord import formatters
 from librarian.discord.cogs import helpers
+from librarian.discord.settings import registry
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,11 @@ class Server(commands.Cog):
     @commands.command(name="promote")
     @helpers.is_promoted()
     async def promote_users(self, ctx: commands.Context):
+        """
+        allow mentioned users to change the bot's settings.
+        can be used by the server's owner or other promoted users
+        """
+
         helper = ctx.bot.storage.discord
         if ctx.message.mentions:
             promoted = helper.promote_users(ctx.message.channel.guild.id, *[_.id for _ in ctx.message.mentions])
@@ -29,6 +35,11 @@ class Server(commands.Cog):
     @commands.command(name="demote")
     @helpers.is_promoted()
     async def demote_users(self, ctx: commands.Context):
+        """
+        disallow mentioned users to change the bot's settings.
+        can be used by the server's owner or other promoted users
+        """
+
         helper = ctx.bot.storage.discord
         if ctx.message.mentions:
             demoted = helper.demote_users(ctx.message.channel.guild.id, *[_.id for _ in ctx.message.mentions])
@@ -44,6 +55,13 @@ class Server(commands.Cog):
 
     @commands.command(name="show")
     async def show(self, ctx: commands.Context, *args):
+        """
+        print different things
+
+        .show promoted: users that can edit settings
+        .show settings: current settings
+        """
+
         if not args or len(args) > 1:
             return await ctx.send_help(Server.show.name)
 
@@ -60,9 +78,17 @@ class Server(commands.Cog):
 
         return await ctx.message.channel.send(content=reply)
 
+    # the final docstring for this command is generated automatically
     @commands.command(name="set")
     @helpers.is_promoted()
     async def set(self, ctx: commands.Context, *args):
+        """
+        change translation-related settings
+        example: .set language ru reviewer-role 12345
+
+        known settings:
+        """
+
         try:
             await ctx.bot.settings.update(
                 ctx.message.channel.id, ctx.message.channel.guild.id, args
@@ -79,6 +105,17 @@ class Server(commands.Cog):
     @commands.command(name="reset")
     @helpers.is_promoted()
     async def reset(self, ctx: commands.Context):
+        """
+        IMMEDIATELY reset settings and promoted users for this channel,
+        effectively disabling all pings and GitHub-related subscriptions
+        """
+
         await ctx.bot.settings.reset(ctx.message.channel.id)
         reply = "removed custom settings for this channel"
         return await ctx.message.channel.send(content=reply)
+
+
+Server.set.help += "".join(
+    "\n  {}".format(line)
+    for line in registry.parameters_combined_docs()
+)

@@ -1,5 +1,4 @@
 import asyncio
-import collections
 import itertools as it
 import logging
 

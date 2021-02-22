@@ -49,7 +49,7 @@ class Pulls(commands.Cog):
     @commands.command()
     async def count(self, ctx: commands.Context, *args):
         """
-        pull requests merged within a time span
+        list pull requests merged within a time span. works only when a language code is set for the channel
 
         .count: current month
         .count lastmonth: the last month
@@ -57,6 +57,7 @@ class Pulls(commands.Cog):
         """
 
         settings = await ctx.bot.settings.get(ctx.message.channel.id)
+        # FIXME: use optional language code parameter
         lcode = settings.get(custom.Language.name)
         if lcode is None:
             reply = "no language set for this channel -- see `.help set` on how to do that"

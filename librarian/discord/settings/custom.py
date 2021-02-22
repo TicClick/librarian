@@ -5,10 +5,20 @@ from librarian.discord import languages
 
 
 class StoreInPins(base.Bool):
-    name = "store_in_pins"
+    """
+    pin open translations until they're merged/closed.
+    possible values: true/false
+    """
+
+    name = "store-in-pins"
 
 
 class Language(base.String):
+    """
+    pulls with this language code will be watched.
+    possible values: anything from https://osu.ppy.sh/wiki/en/Article_styling_criteria/Formatting#locales
+    """
+
     name = "language"
     __whitelisted = frozenset((
         "en", "ar", "be", "bg", "cs", "da", "de", "gr", "es", "fi", "fr", "hu", "id", "it", "ja", "ko", "nl", "no",
@@ -35,7 +45,12 @@ class Language(base.String):
 
 
 class ReviewerRole(base.Int):
-    name = "reviewrole"
+    """
+    a single role that will be highlighted on new pulls for chosen language.
+    possible values: numeric identifier or mention
+    """
+
+    name = "review-role"
     __mask = re.compile(r"<@&(?P<id>\d+)>")
 
     def check(self):

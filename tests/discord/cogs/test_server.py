@@ -1,4 +1,5 @@
 from librarian.discord.cogs import server
+from librarian.discord.settings import custom
 
 
 class TestServerCog:
@@ -101,11 +102,18 @@ class TestServerCog:
 
         assert not client.settings._Registry__cache
         await Server.show(ctx, "settings")
-        assert ctx.kwargs()["content"] == "```\n{\n  \"store_in_pins\": true\n}\n```"
+        assert ctx.kwargs()["content"] == '```\n{\n  "' + custom.StoreInPins.name + '": true\n}\n```'
 
-        await client.settings.update(ctx.message.channel.id, ctx.message.channel.guild.id, ["reviewrole", "12345"])
+        await client.settings.update(
+            ctx.message.channel.id,
+            ctx.message.channel.guild.id,
+            [custom.ReviewerRole.name, "12345"]
+        )
         await Server.show(ctx, "settings")
-        assert ctx.kwargs()["content"] == "```\n{\n  \"store_in_pins\": true,\n  \"reviewrole\": 12345\n}\n```"
+        assert ctx.kwargs()["content"] == (
+            '```\n{\n  "' + custom.StoreInPins.name + '": true,\n  "' +
+            custom.ReviewerRole.name + '": 12345\n}\n```'
+        )
 
     async def test__set_settings(self, client, storage, make_context, mocker):
         Server = client.get_cog(server.Server.__name__)
@@ -116,18 +124,23 @@ class TestServerCog:
         ctx.message.channel.guild.owner.id = 1234
 
         assert not client.settings._Registry__cache
-        await Server.set(ctx, "store_in_pins", "true", "reviewrole", "12345", "language", "TR")
+        await Server.set(
+            ctx,
+            custom.StoreInPins.name, "true",
+            custom.ReviewerRole.name, "12345",
+            custom.Language.name, "TR"
+        )
         assert ctx.kwargs()["content"] == "done"
 
         settings = await client.settings.get(ctx.message.channel.id)
-        assert settings == {"store_in_pins": True, "reviewrole": 12345, "language": "tr"}
+        assert settings == {custom.StoreInPins.name: True, custom.ReviewerRole.name: 12345, custom.Language.name: "tr"}
 
         for payload in (
-            ("store_in_pins", 1234),
+            (custom.StoreInPins.name, 1234),
             ("store_in_pinsssss", True),
             (),
-            ("store_in_pins",),
-            ("store_in_pins", "store_in_pins"),
+            (custom.StoreInPins.name,),
+            (custom.StoreInPins.name, custom.StoreInPins.name),
         ):
             await Server.set(ctx, *payload)
             assert "input error" in ctx.kwargs()["content"]
@@ -142,7 +155,12 @@ class TestServerCog:
         ctx.message.channel.guild.owner.id = 1234
 
         assert not client.settings._Registry__cache
-        await Server.set(ctx, "store_in_pins", "true", "reviewrole", "12345", "language", "TR")
+        await Server.set(
+            ctx,
+            custom.StoreInPins.name, "true",
+            custom.ReviewerRole.name, "12345",
+            custom.Language.name, "TR"
+        )
         assert ctx.kwargs()["content"] == "done"
 
         await Server.reset(ctx)
