@@ -102,7 +102,7 @@ class TestServerCog:
 
         assert not client.settings._Registry__cache
         await Server.show(ctx, "settings")
-        assert ctx.kwargs()["content"] == '```\n{\n  "' + custom.StoreInPins.name + '": true\n}\n```'
+        assert ctx.kwargs()["content"] == '```\n{\n  "' + custom.PinMessages.name + '": true\n}\n```'
 
         await client.settings.update(
             ctx.message.channel.id,
@@ -111,7 +111,7 @@ class TestServerCog:
         )
         await Server.show(ctx, "settings")
         assert ctx.kwargs()["content"] == (
-            '```\n{\n  "' + custom.StoreInPins.name + '": true,\n  "' +
+            '```\n{\n  "' + custom.PinMessages.name + '": true,\n  "' +
             custom.ReviewerRole.name + '": 12345\n}\n```'
         )
 
@@ -126,21 +126,21 @@ class TestServerCog:
         assert not client.settings._Registry__cache
         await Server.set(
             ctx,
-            custom.StoreInPins.name, "true",
+            custom.PinMessages.name, "true",
             custom.ReviewerRole.name, "12345",
             custom.Language.name, "TR"
         )
         assert ctx.kwargs()["content"] == "done"
 
         settings = await client.settings.get(ctx.message.channel.id)
-        assert settings == {custom.StoreInPins.name: True, custom.ReviewerRole.name: 12345, custom.Language.name: "tr"}
+        assert settings == {custom.PinMessages.name: True, custom.ReviewerRole.name: 12345, custom.Language.name: "tr"}
 
         for payload in (
-            (custom.StoreInPins.name, 1234),
+            (custom.PinMessages.name, 1234),
             ("store_in_pinsssss", True),
             (),
-            (custom.StoreInPins.name,),
-            (custom.StoreInPins.name, custom.StoreInPins.name),
+            (custom.PinMessages.name,),
+            (custom.PinMessages.name, custom.PinMessages.name),
         ):
             await Server.set(ctx, *payload)
             assert "input error" in ctx.kwargs()["content"]
@@ -157,7 +157,7 @@ class TestServerCog:
         assert not client.settings._Registry__cache
         await Server.set(
             ctx,
-            custom.StoreInPins.name, "true",
+            custom.PinMessages.name, "true",
             custom.ReviewerRole.name, "12345",
             custom.Language.name, "TR"
         )

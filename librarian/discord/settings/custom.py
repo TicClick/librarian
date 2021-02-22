@@ -4,13 +4,13 @@ from librarian.discord.settings import base
 from librarian.discord import languages
 
 
-class StoreInPins(base.Bool):
+class PinMessages(base.Bool):
     """
     pin open translations until they're merged/closed.
     possible values: true/false
     """
 
-    name = "store-in-pins"
+    name = "pin-messages"
 
 
 class Language(base.String):
@@ -50,7 +50,7 @@ class ReviewerRole(base.Int):
     possible values: numeric identifier or mention
     """
 
-    name = "review-role"
+    name = "reviewer-role"
     __mask = re.compile(r"<@&(?P<id>\d+)>")
 
     def check(self):

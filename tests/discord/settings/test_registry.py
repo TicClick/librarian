@@ -62,19 +62,19 @@ class TestRegistry:
     def test__properties(self):
         assert registry.Registry.KNOWN_SETTINGS == {
             _.name: _
-            for _ in (custom.StoreInPins, custom.Language, custom.ReviewerRole)
+            for _ in (custom.PinMessages, custom.Language, custom.ReviewerRole)
         }
 
         assert registry.Registry.default_settings() == {
-            custom.StoreInPins.name: True
+            custom.PinMessages.name: True
         }
 
     async def test__init(self, storage, mocker):
         r = registry.Registry(storage.discord)
         assert not r._Registry__cache
-        assert await r.get(12345) == r.default_settings() == {custom.StoreInPins.name: True}
+        assert await r.get(12345) == r.default_settings() == {custom.PinMessages.name: True}
 
-        dummy = {custom.StoreInPins.name: False, "language": "ru"}
+        dummy = {custom.PinMessages.name: False, "language": "ru"}
         storage.discord.save_channel_settings(12345, 67890, dummy)
 
         rr = registry.Registry(storage.discord)
@@ -96,18 +96,18 @@ class TestRegistry:
             ("incorrect sequence", ["test", "setting", "and-one-more"]),
             ("unknown setting", ["unknown", 1234]),
             ("unknown setting", [1234, 1234]),
-            ("incorrect value abc for setting {}".format(custom.StoreInPins.name), [custom.StoreInPins.name, "abc"])
+            ("incorrect value abc for setting {}".format(custom.PinMessages.name), [custom.PinMessages.name, "abc"])
         ):
             with pytest.raises(ValueError) as exc:
                 list(r.wrap(payload))
             assert expected_error in str(exc.value)
 
         payload = [
-            custom.StoreInPins.name, "True",
+            custom.PinMessages.name, "True",
             custom.Language.name, "RU",
             custom.ReviewerRole.name, "<@&1234>",
         ]
-        expected_result = [custom.StoreInPins(True), custom.Language("ru"), custom.ReviewerRole(1234)]
+        expected_result = [custom.PinMessages(True), custom.Language("ru"), custom.ReviewerRole(1234)]
         wrapped_payload = list(r.wrap(payload))
         assert len(wrapped_payload) == len(expected_result)
         for expected, wrapped in zip(expected_result, wrapped_payload):
@@ -120,33 +120,33 @@ class TestRegistry:
         storage.discord.save_channel_settings = mocker.Mock(side_effect=storage.discord.save_channel_settings)
         storage.discord.load_channel_settings = mocker.Mock(side_effect=storage.discord.load_channel_settings)
 
-        await r.update(1234, 1, [custom.StoreInPins.name, "True"])
+        await r.update(1234, 1, [custom.PinMessages.name, "True"])
         assert not storage.discord.save_channel_settings.called  # defaults should be skipped
         assert not storage.discord.load_channel_settings.called
 
-        await r.update(1234, 1, [custom.StoreInPins.name, "False"])
+        await r.update(1234, 1, [custom.PinMessages.name, "False"])
         assert storage.discord.save_channel_settings.called
-        assert await r.get(1234) == {custom.StoreInPins.name: False}
+        assert await r.get(1234) == {custom.PinMessages.name: False}
         assert not storage.discord.load_channel_settings.called
 
         storage.discord.save_channel_settings.reset_mock()
-        await r.update(1234, 1, [custom.StoreInPins.name, "False"])
+        await r.update(1234, 1, [custom.PinMessages.name, "False"])
         assert not storage.discord.save_channel_settings.called
 
         await r.update(1234, 1, [custom.Language.name, "ru"])
         assert storage.discord.save_channel_settings.called
-        assert await r.get(1234) == {custom.StoreInPins.name: False, custom.Language.name: "ru"}
+        assert await r.get(1234) == {custom.PinMessages.name: False, custom.Language.name: "ru"}
 
         for payload in (
             ["dummy", "setting"],
             [],
-            [custom.StoreInPins.name, 9023],
+            [custom.PinMessages.name, 9023],
         ):
             with pytest.raises(ValueError):
                 await r.update(1234, 1, payload)
 
         with pytest.raises(ValueError):
-            await r.update(911, 1, [custom.Language.name, "ru", "nonsense", "1234", custom.StoreInPins.name, False])
+            await r.update(911, 1, [custom.Language.name, "ru", "nonsense", "1234", custom.PinMessages.name, False])
         assert await r.get(911) == r.default_settings()
 
         assert 1234 in r.channels_by_language["ru"].channels
@@ -158,7 +158,7 @@ class TestRegistry:
         r = registry.Registry(storage.discord)
         await r.reset(1234)
 
-        dummy = {custom.StoreInPins.name: False, custom.Language.name: "ru"}
+        dummy = {custom.PinMessages.name: False, custom.Language.name: "ru"}
         storage.discord.save_channel_settings(12345, 67890, dummy)
 
         rr = registry.Registry(storage.discord)

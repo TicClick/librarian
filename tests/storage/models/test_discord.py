@@ -77,7 +77,7 @@ class TestDiscordChannels:
         assert not storage.discord.load_channel_settings(1234)
 
         payload = (
-            (12345, 1, {custom.StoreInPins.name: True, "whatever-setting": "abc1234"}),
+            (12345, 1, {custom.PinMessages.name: True, "whatever-setting": "abc1234"}),
             (12346, 1, {"non": "sense", "1234": 5678, "910": [11, 12]}),
             (12347, 2, {}),
         )
@@ -90,7 +90,7 @@ class TestDiscordChannels:
 
             assert len(storage.discord.all_channels_settings()) == i + 1
 
-        new_settings = {custom.StoreInPins.name: False}
+        new_settings = {custom.PinMessages.name: False}
         storage.discord.save_channel_settings(12345, 1, new_settings)
         assert len(storage.discord.all_channels_settings()) == len(payload)
         assert storage.discord.load_channel_settings(12345).settings == new_settings

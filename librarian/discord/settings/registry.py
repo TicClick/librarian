@@ -66,7 +66,7 @@ class Registry:
     @classmethod
     def default_settings(cls):
         return {
-            custom.StoreInPins.name: True,
+            custom.PinMessages.name: True,
         }
 
     def wrap(self, tokens):

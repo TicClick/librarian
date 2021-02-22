@@ -100,7 +100,7 @@ class Client(commands.Bot):
                 logger.debug("Updating existing message #%s", message_id)
                 await message.edit(embed=embed)
 
-        if channel_settings.get(custom.StoreInPins.name):
+        if channel_settings.get(custom.PinMessages.name):
             try:
                 if pull.state == formatters.PullState.CLOSED.name:
                     await message.unpin()

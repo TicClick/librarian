@@ -8,13 +8,13 @@ from librarian.discord.settings import (
 
 class TestCustomSettings:
     def test__basic(self):
-        for cls in (custom.StoreInPins, custom.Language, custom.ReviewerRole):
+        for cls in (custom.PinMessages, custom.Language, custom.ReviewerRole):
             assert issubclass(cls, base.BaseSetting)
             assert cls.name is not None and cls.name == cls.name.lower()
 
     def test__store_in_pins(self, bool_casts):
         for in_, out in bool_casts:
-            instance = custom.StoreInPins(in_)
+            instance = custom.PinMessages(in_)
             assert instance.check() and instance.cast() == out
 
     def test__language(self):
