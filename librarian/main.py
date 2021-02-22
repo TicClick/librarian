@@ -1,5 +1,4 @@
 import argparse
-import itertools
 import logging
 import os
 import sys
@@ -7,6 +6,7 @@ import sys
 from librarian import (
     config,
     discord,
+    logging as logging_utils,
     github,
     storage,
 )
@@ -17,32 +17,11 @@ PADDING = 40
 PADDING_CHAR = "-"
 
 
-def setup_logging(runtime_dir, logging_config, loggers):
-    formatter = logging.Formatter((
-        "%(asctime)s\t"
-        "%(module)s:%(lineno)d\t"
-        "%(levelname)s\t"
-        "%(message)s"
-    ))
-    file_name = os.path.join(runtime_dir, logging_config["file"])
-    file_handler = logging.FileHandler(file_name, "a")
-    file_handler.setFormatter(formatter)
-
-    for logger in loggers:
-        logger.handlers = []
-        logger.addHandler(file_handler)
-        logger.setLevel(getattr(logging, logging_config["level"]))
-
-
 def configure_client(config):
-    # TODO: automatically pick up loggers from all modules
     # TODO: ban logging.{debug,info,warning,error,critical} which I sometimes call by mistake
-    setup_logging(
-        config["runtime"]["dir"], config["logging"],
-        itertools.chain(
-            (logger, github.logger), discord.LOGGERS,
-        )
-    )
+    loggers = logging_utils.all_loggers()
+    loggers["librarian.main"] = logger  # otherwise an old copy with default settings is kept
+    logging_utils.setup_logging(config["runtime"]["dir"], config["logging"], loggers.values())
     logger.info(" Starting up ".center(PADDING, PADDING_CHAR))
 
     github_api = github.GitHub(
