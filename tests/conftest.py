@@ -1,3 +1,4 @@
+import itertools
 import json
 import random
 
@@ -12,8 +13,9 @@ from tests import utils
 
 
 @pytest.fixture
-def existing_pulls(authors, titles):
+def existing_pulls(authors, titles_by_codes):
     res = []
+    titles = list(itertools.chain(*titles_by_codes.values()))
     for number in range(1, 300):
         closed = random.random() < 0.8
         merged = random.random() < 0.9
@@ -35,11 +37,13 @@ def existing_pulls(authors, titles):
     return res
 
 
-@pytest.fixture
-def get_routes(repo, existing_pulls):
+def make_get_routes(repo, existing_pulls, unstable=False):
     result = {}
 
     async def list_pulls(request: web.Request):
+        if unstable:
+            return web.Response(status=200, text="", content_type="application/json")
+
         pulls = existing_pulls
         q = request.url.query
         if q.get("sort", "created") == "created":
@@ -57,15 +61,30 @@ def get_routes(repo, existing_pulls):
 
     for pull in existing_pulls:
         pull_path = "/repos/{}/pulls/{}".format(repo, pull["number"])
-        result[pull_path] = utils.make_response(200, pull)
-
         issue_path = "/repos/{}/issues/{}".format(repo, pull["number"])
-        result[issue_path] = utils.make_response(200, utils.as_issue(pull))
+
+        if unstable and random.random() >= 0.5:
+            code = random.choice([500, 501, 502])
+            result[pull_path] = utils.make_response(code, {})
+            result[issue_path] = utils.make_response(code, {})
+        else:
+            result[pull_path] = utils.make_response(200, pull)
+            result[issue_path] = utils.make_response(200, utils.as_issue(pull))
 
     pulls_path = "/repos/{}/pulls".format(repo)
     result[pulls_path] = list_pulls
 
     return result
+
+
+@pytest.fixture
+def get_routes(repo, existing_pulls):
+    yield make_get_routes(repo, existing_pulls)
+
+
+@pytest.fixture
+def unstable_get_routes(repo, existing_pulls):
+    yield make_get_routes(repo, existing_pulls, unstable=True)
 
 
 @pytest.fixture
@@ -95,6 +114,11 @@ def mock_github(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_t
 
 
 @pytest.fixture
+def mock_unstable_github(monkeypatch, aiohttp_client, loop, unstable_get_routes, post_routes, gh_token):
+    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, unstable_get_routes, post_routes, gh_token)
+
+
+@pytest.fixture
 def gh_token():
     return "AQAD-0xCOFFEE"
 
@@ -110,8 +134,14 @@ def authors():
 
 
 @pytest.fixture
-def titles():
-    return ["Test", "[RU] Test", "TEST PULL DO NOT MERGE", "[EN/RU] update", "[PL] blah", "[FR] another blah"]
+def titles_by_codes():
+    return {
+        "ru": ["[RU] Test", "[EN/RU] update"],
+        None: ["TEST PULL DO NOT MERGE"],
+        "en": ["[EN/RU] update"],
+        "pl": ["[PL] blah"],
+        "fr": ["[FR] another blah"],
+    }
 
 
 @pytest.fixture
@@ -137,7 +167,7 @@ def storage(dbpath):
 @pytest.fixture
 def client(mock_github, storage, repo, gh_token, assignee_login):
     bot = librarian.discord.Client(
-        github=librarian.github.GitHub(repo, gh_token),
+        github=librarian.github.GitHub(token=gh_token, repo=repo),
         storage=storage,
         assignee_login=assignee_login,
     )

@@ -4,7 +4,6 @@ import logging
 import discord
 from discord.ext import commands
 
-from librarian.discord import formatters
 from librarian.discord.cogs import (
     pulls,
     server,
@@ -14,10 +13,7 @@ from librarian.discord.cogs.background import (
     base,
     github as github_cogs,
 )
-from librarian.discord.settings import (
-    custom,
-    registry,
-)
+from librarian.discord.settings import registry
 
 logger = logging.getLogger(__name__)
 
@@ -56,53 +52,40 @@ class Client(commands.Bot):
         logger.info("Logged in as %s #%s, starting routines", self.user, self.user.id)
         await self.start_routines()
 
-    async def post_update(self, pull=None, channel_id=None, message_id=None):
-        if isinstance(pull, int):
-            pull = self.storage.pulls.by_number(pull)
-        if pull is None:
-            logger.warning("Can't post update: pull #%s not found", pull)
-            return
-
-        logger.debug("Update requested for pull #%s: message #%s of channel #%s", pull.number, message_id, channel_id)
-
-        channel_settings = self.settings[channel_id]
-        content = ""
-        reviewer_role = channel_settings.get(custom.ReviewerRole)
-        if reviewer_role:
-            content = "{}, ".format(formatters.Highlighter.role(reviewer_role.cast()))
-
-        language = channel_settings[custom.Language.name]
-        content += language.random_highlight
-        embed = formatters.PullFormatter.make_embed_for(pull, self.github.repo)
-
-        channel = self.get_channel(channel_id)
+    async def post_or_update(self, channel_id, message_id=None, content=None, embed=None):
+        channel = self.bot.get_channel(channel_id)
         if channel is None:
             channel = await self.fetch_channel(channel_id)
 
         if message_id is None:
             message = await channel.send(content=content, embed=embed)  # type: discord.Message
-            logger.debug("New message created #%s", message.id)
+            logger.debug("New message #%s created in #%s", message.id, channel.id)
+            return message
 
         else:
             try:
-                logger.debug("Reading existing message #%s", message_id)
-                message = await channel.fetch_message(message_id)  # type: discord.Message
-
-            except discord.NotFound:
-                logger.error("Message #%s for pull #%s wasn't found", message_id, pull.number)
-                return None, None
-
-            else:
                 logger.debug("Updating existing message #%s", message_id)
+                message = await channel.fetch_message(message_id)  # type: discord.Message
+            except discord.NotFound:
+                logger.error("Message #%s wasn't found", message_id)
+                message = None
+            else:
                 await message.edit(embed=embed)
+            finally:
+                return message
 
-        if channel_settings.get(custom.PinMessages.name).cast():
-            try:
-                if pull.state == formatters.PullState.CLOSED.name:
-                    await message.unpin()
-                elif not message.pinned:
-                    await message.pin()
-            except discord.DiscordException as exc:
-                logger.error("Failed to pin/unpin the message #%s: %s", message.id, exc)
+    async def pin(self, message):
+        if message.pinned:
+            return
+        try:
+            await message.pin()
+        except discord.DiscordException as exc:
+            logger.error("Failed to pin the message #%s in #%s: %s", message.id, message.channel.id, exc)
 
-        return message.channel.id, message.id
+    async def unpin(self, message):
+        if not message.pinned:
+            return
+        try:
+            await message.unpin()
+        except discord.DiscordException as exc:
+            logger.error("Failed to unpin the message #%s in #%s: %s", message.id, message.channel.id, exc)
