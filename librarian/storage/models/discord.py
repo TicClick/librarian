@@ -3,7 +3,10 @@ import typing
 import sqlalchemy as sql
 from sqlalchemy import orm
 
-from librarian.storage import base
+from librarian.storage import (
+    base,
+    utils,
+)
 
 
 class DiscordMessage(base.Base):
@@ -44,61 +47,61 @@ class DiscordHelper(base.Helper):
     See individual methods for usage details.
     """
 
-    def custom_promoted_users(self, guild_id):
-        with self.session_scope() as s:
-            relations = s.query(DiscordPromotedRelation).filter(DiscordPromotedRelation.guild_id == guild_id).all()
-            return {_.user_id for _ in relations}
+    @utils.optional_session
+    def custom_promoted_users(self, guild_id, s):
+        relations = s.query(DiscordPromotedRelation).filter(DiscordPromotedRelation.guild_id == guild_id).all()
+        return {_.user_id for _ in relations}
 
-    def promote_users(self, guild_id, *user_ids):
-        with self.session_scope() as s:
-            existing = s.query(DiscordPromotedRelation).filter(
-                DiscordPromotedRelation.guild_id == guild_id,
-                DiscordPromotedRelation.user_id.in_(user_ids),
-            ).all()
-            missing = set(user_ids) - set(_.user_id for _ in existing)
+    @utils.optional_session
+    def promote_users(self, guild_id, *user_ids, s=None):
+        existing = s.query(DiscordPromotedRelation).filter(
+            DiscordPromotedRelation.guild_id == guild_id,
+            DiscordPromotedRelation.user_id.in_(user_ids),
+        ).all()
+        missing = set(user_ids) - set(_.user_id for _ in existing)
 
-            s.add_all(
-                DiscordPromotedRelation(user_id=user_id, guild_id=guild_id)
-                for user_id in missing
-            )
-            return sorted(missing)
+        s.add_all(
+            DiscordPromotedRelation(user_id=user_id, guild_id=guild_id)
+            for user_id in missing
+        )
+        return sorted(missing)
 
-    def demote_users(self, guild_id, *user_ids):
-        with self.session_scope() as s:
-            existing = s.query(DiscordPromotedRelation).filter(
-                DiscordPromotedRelation.guild_id == guild_id,
-                DiscordPromotedRelation.user_id.in_(user_ids)
-            ).all()
-            ids = [_.user_id for _ in existing]
+    @utils.optional_session
+    def demote_users(self, guild_id, *user_ids, s=None):
+        existing = s.query(DiscordPromotedRelation).filter(
+            DiscordPromotedRelation.guild_id == guild_id,
+            DiscordPromotedRelation.user_id.in_(user_ids)
+        ).all()
+        ids = [_.user_id for _ in existing]
 
-            for obj in existing:
-                s.delete(obj)
-            return ids
+        for obj in existing:
+            s.delete(obj)
+        return ids
 
-    def save_messages(self, *messages: typing.List[DiscordMessage]):
+    @utils.optional_session
+    def save_messages(self, *messages: typing.List[DiscordMessage], s):
         """ Save multiple messages into the database. """
-        with self.session_scope() as s:
-            s.add_all(messages)
+        s.add_all(messages)
 
-    def messages_by_pull_numbers(self, *pull_numbers: typing.List[int]):
+    @utils.optional_session
+    def messages_by_pull_numbers(self, *pull_numbers: typing.List[int], s: orm.Session = None):
         """ Return all known messages that are tied to the specified pulls. """
-        with self.session_scope() as s:
-            return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()
+        return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()
 
-    def all_channels_settings(self):
-        with self.session_scope() as s:
-            return s.query(DiscordChannel).all()
+    @utils.optional_session
+    def all_channels_settings(self, s):
+        return s.query(DiscordChannel).all()
 
-    def load_channel_settings(self, channel_id):
-        with self.session_scope() as s:
-            return s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).first()
+    @utils.optional_session
+    def load_channel_settings(self, channel_id, s):
+        return s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).first()
 
-    def save_channel_settings(self, channel_id, guild_id, all_settings):
-        with self.session_scope() as s:
-            updated = s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).update({"settings": all_settings})
-            if not updated:
-                s.add(DiscordChannel(id=channel_id, guild_id=guild_id, settings=all_settings))
+    @utils.optional_session
+    def save_channel_settings(self, channel_id, guild_id, all_settings, s):
+        updated = s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).update({"settings": all_settings})
+        if not updated:
+            s.add(DiscordChannel(id=channel_id, guild_id=guild_id, settings=all_settings))
 
-    def delete_channel_settings(self, channel_id):
-        with self.session_scope() as s:
-            s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).delete()
+    @utils.optional_session
+    def delete_channel_settings(self, channel_id, s):
+        s.query(DiscordChannel).filter(DiscordChannel.id == channel_id).delete()
