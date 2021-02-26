@@ -172,8 +172,9 @@ class MonitorPulls(base.BackgroundCog):
         )
 
         ok = await self.fetch_pulls(already_closed | new_open | updated)
-        saved = self.storage.pulls.save_many_from_payload(ok)
-        self.sort_for_updates(saved)
+        with self.storage.session_scope() as s:
+            saved = self.storage.pulls.save_many_from_payload(ok, s=s)
+            self.sort_for_updates(saved)
 
     async def sort_for_updates(self, pulls):
         tasks, items = [], []

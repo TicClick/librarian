@@ -12,7 +12,16 @@ from librarian.discord.settings import custom
 from librarian.discord.cogs.background import github
 
 
-class TestMonitorPulls:
+@pytest.fixture
+def codes_by_titles(titles_by_codes):
+    codes_by_titles = {}
+    for k, v in titles_by_codes.items():
+        for vv in v:
+            codes_by_titles[vv] = k
+    yield codes_by_titles
+
+
+class TestUpdatePullStatus:
     SAMPLE_SZ = 30
 
     async def test__fetch_pulls(self, client, existing_pulls, mock_unstable_github, mocker):
@@ -126,8 +135,108 @@ class TestMonitorPulls:
         else:
             assert returned_message_model is None
 
-    async def test__sort_for_updates(self):
-        raise NotImplementedError()
 
-    async def test__loop(self):
-        raise NotImplementedError()
+class TestSortForUpdates:
+    exception_str = "unique exception"
+
+    async def __sort_for_updates_prepare(
+        self, client, storage, existing_pulls, mocker, codes_by_titles, channel_ids, guild_id,
+        save_pull, pull_state, raise_exc=False
+    ):
+        monitor = github.MonitorPulls(client)
+        monitor.CUTOFF_PULL_NUMBER = 0
+
+        def side_effect(channel_id, message_id, embed, content):
+            if raise_exc:
+                raise RuntimeError(self.exception_str)
+
+            msg = mocker.Mock()
+            msg.id = channel_id + 100
+            msg.channel.id = channel_id
+            return msg
+
+        client.post_or_update = mocker.AsyncMock(side_effect=side_effect)
+        client.pin = mocker.AsyncMock(side_effect=client.pin)
+        client.unpin = mocker.AsyncMock(side_effect=client.unpin)
+
+        monitor.update_pull_status = mocker.AsyncMock(side_effect=monitor.update_pull_status)
+
+        p = next(iter(
+            _
+            for _ in existing_pulls if
+            (
+                codes_by_titles[_["title"]] and
+                _["state"] == pull_state
+            )
+        ))
+        language = custom.Language(codes_by_titles[p["title"]])
+
+        for channel_id in channel_ids:
+            await client.settings.update(channel_id, guild_id, [language.name, language.code])
+
+        if save_pull:
+            storage.pulls.save_from_payload(p)
+
+        return p, monitor
+
+    @pytest.mark.parametrize("raise_exc", [True, False])
+    @pytest.mark.parametrize("pull_state", ["open", "closed"])
+    @pytest.mark.parametrize("channel_ids", [[123], [123, 1234]])
+    async def test__sort_for_updates__new_pull(
+        self, client, storage, existing_pulls, mocker, codes_by_titles, channel_ids, pull_state, raise_exc
+    ):
+        guild_id = 1
+        p, monitor = await self.__sort_for_updates_prepare(
+            client, storage, existing_pulls, mocker, codes_by_titles, channel_ids, guild_id,
+            save_pull=False, pull_state=pull_state, raise_exc=raise_exc
+        )
+
+        github.logger = mocker.Mock()
+
+        with storage.session_scope():
+            pp = pull.Pull(p)
+            await monitor.sort_for_updates([pp])
+
+        for (done, _), expected in zip(
+            sorted(monitor.update_pull_status.call_args_list),
+            sorted((pp, ch_id, None) for ch_id in channel_ids)
+        ):
+            assert done[0].number == expected[0].number
+            assert done[1] == expected[1]
+            assert done[2] is None
+
+        if raise_exc:
+            assert github.logger.error.called
+        else:
+            expected_len = len(channel_ids) if pull_state == "open" else 0
+            assert len(storage.discord.messages_by_pull_numbers(pp.number)) == expected_len
+
+    @pytest.mark.parametrize("pull_state", ["open", "closed"])
+    @pytest.mark.parametrize("channel_ids", [[123], [123, 1234]])
+    async def test__sort_for_updates__existing_pull(
+        self, client, storage, existing_pulls, mocker, codes_by_titles, channel_ids, pull_state
+    ):
+        guild_id = 1
+        p, monitor = await self.__sort_for_updates_prepare(
+            client, storage, existing_pulls, mocker, codes_by_titles, channel_ids, guild_id,
+            save_pull=True, pull_state=pull_state
+        )
+
+        pull_number = p["number"]
+        msgs = {
+            channel_id: discord.DiscordMessage(
+                id=channel_id + 100, channel_id=channel_id, pull_number=pull_number
+            )
+            for channel_id in channel_ids
+        }
+        storage.discord.save_messages(*msgs.values())
+        pp = storage.pulls.by_number(pull_number)
+        await monitor.sort_for_updates([pp])
+
+        for (done, _), expected in zip(
+            sorted(monitor.update_pull_status.call_args_list),
+            sorted((pp, ch_id, msgs[ch_id]) for ch_id in channel_ids)
+        ):
+            assert done[0].number == expected[0].number
+            assert done[1] == expected[1]
+            assert done[2].id == expected[2].id
