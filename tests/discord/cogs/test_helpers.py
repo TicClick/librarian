@@ -5,7 +5,7 @@ class TestHelpers:
     async def test__allowed_users(self, storage, make_context):
         ctx = make_context()
         ctx.message.channel.guild.id = 1
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
 
         assert await helpers.promoted_users(ctx) == {1234}
 

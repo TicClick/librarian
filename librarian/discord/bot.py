@@ -38,7 +38,7 @@ class Client(commands.Bot):
         self.add_cog(system.System())
         self.add_cog(github_cogs.FetchNewPulls(self))
         self.add_cog(github_cogs.MonitorPulls(self))
-        self.add_cog(server.Server(self))
+        self.add_cog(server.Server())
 
     async def start_routines(self):
         logger.debug("Starting cogs")

@@ -157,7 +157,4 @@ def parameters_docs():
 
 def parameters_combined_docs():
     for item in parameters_docs():
-        yield "- {}: {}".format(item.name, item.trivia)
-        padding = " " * 4
-        for line in item.rest:
-            yield padding + line
+        yield "- {}: {}".format(item.name, " ".join([item.trivia] + item.rest))

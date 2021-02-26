@@ -8,7 +8,7 @@ class TestServerCog:
 
         ctx = make_context()
         ctx.message.channel.guild.id = 1
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
         ctx.message.mentions = []
 
         ctx.message.author.id = 12
@@ -36,7 +36,7 @@ class TestServerCog:
 
         ctx = make_context()
         ctx.message.channel.guild.id = 1
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
         ctx.message.mentions = []
 
         ctx.message.author.id = 12
@@ -61,14 +61,14 @@ class TestServerCog:
             for tag in ("<@12>", "<@12345>")
         )
         assert "<@91>" not in ctx.kwargs()["content"]
-        assert "can **not** change my settings on the server" in ctx.kwargs()["content"]
+        assert "**disabled** settings for" in ctx.kwargs()["content"]
 
     async def test__show_nonsense(self, client, storage, make_context, mocker):
         Server = client.get_cog(server.Server.__name__)
 
         ctx = make_context()
         ctx.message.channel.guild.id = 1
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
 
         assert not storage.discord.custom_promoted_users(1)
         await Server.show(ctx, "test")
@@ -79,7 +79,7 @@ class TestServerCog:
 
         ctx = make_context()
         ctx.message.channel.guild.id = 1
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
 
         assert not storage.discord.custom_promoted_users(1)
         await Server.show(ctx, "promoted")
@@ -98,7 +98,7 @@ class TestServerCog:
         ctx = make_context()
         ctx.message.channel.guild.id = 1
         ctx.message.channel.id = 123
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
 
         assert not client.settings._Registry__cache
         await Server.show(ctx, "settings")
@@ -121,7 +121,7 @@ class TestServerCog:
         ctx = make_context()
         ctx.message.channel.guild.id = 1
         ctx.message.channel.id = 123
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
 
         assert not client.settings._Registry__cache
         await Server.set(
@@ -152,7 +152,7 @@ class TestServerCog:
         ctx = make_context()
         ctx.message.channel.guild.id = 1
         ctx.message.channel.id = 123
-        ctx.message.channel.guild.owner.id = 1234
+        ctx.message.channel.guild.owner_id = 1234
 
         assert not client.settings._Registry__cache
         await Server.set(

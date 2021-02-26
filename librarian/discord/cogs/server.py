@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 class Server(commands.Cog):
     SETTINGS_INDENT = 2
 
+    def __init__(self):
+        super().__init__()
+        self.set.help += "".join(
+            "\n  {}".format(line)
+            for line in registry.parameters_combined_docs()
+        )
+
     @commands.command(name="promote")
     @helpers.is_promoted()
     async def promote_users(self, ctx: commands.Context):
@@ -25,7 +32,7 @@ class Server(commands.Cog):
         if ctx.message.mentions:
             promoted = helper.promote_users(ctx.message.channel.guild.id, *[_.id for _ in ctx.message.mentions])
             if promoted:
-                reply = "{} can change my settings on the server".format(formatters.Highlighter.chain_users(promoted))
+                reply = "enabled settings for {}".format(formatters.Highlighter.chain_users(promoted))
             else:
                 reply = "all mentioned users are already promoted"
             return await ctx.message.channel.send(content=reply)
@@ -44,7 +51,7 @@ class Server(commands.Cog):
         if ctx.message.mentions:
             demoted = helper.demote_users(ctx.message.channel.guild.id, *[_.id for _ in ctx.message.mentions])
             if demoted:
-                reply = "{} can **not** change my settings on the server".format(
+                reply = "**disabled** settings for {}".format(
                     formatters.Highlighter.chain_users(demoted)
                 )
             else:
@@ -113,9 +120,3 @@ class Server(commands.Cog):
         await ctx.bot.settings.reset(ctx.message.channel.id)
         reply = "removed custom settings for this channel"
         return await ctx.message.channel.send(content=reply)
-
-
-Server.set.help += "".join(
-    "\n  {}".format(line)
-    for line in registry.parameters_combined_docs()
-)

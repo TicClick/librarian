@@ -9,7 +9,7 @@ def is_owner():
 
 async def promoted_users(ctx: commands.Context):
     guild = ctx.message.channel.guild
-    return ctx.bot.storage.discord.custom_promoted_users(guild.id) | {guild.owner.id}
+    return ctx.bot.storage.discord.custom_promoted_users(guild.id) | {guild.owner_id}
 
 
 def is_promoted():
