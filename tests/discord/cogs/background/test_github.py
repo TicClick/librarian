@@ -40,7 +40,7 @@ class TestUpdatePullStatus:
         monitor.CUTOFF_PULL_NUMBER = max(_["number"] for _ in existing_pulls) + 100
         monitor.bot.post_update = mocker.Mock()
 
-        monitor.update_pull_status(pull.Pull(existing_pulls[0]), 1, None)
+        await monitor.update_pull_status(pull.Pull(existing_pulls[0]), 1, None)
         assert not monitor.bot.post_update.called
 
     @pytest.mark.parametrize("pin_message", [True, False])

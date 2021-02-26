@@ -178,19 +178,13 @@ def client(mock_github, storage, repo, gh_token, assignee_login):
 @pytest.fixture
 def make_context(client, mocker):
     def inner():
-        guild = mocker.Mock()
-
-        channel = mocker.AsyncMock()
-        channel.configire_mock(**{
-            "guild": guild,
-            "send": mocker.AsyncMock(),
-        })
+        channel = mocker.Mock()
+        channel.guild = mocker.Mock()
+        channel.send = mocker.AsyncMock()
 
         msg = mocker.Mock()
-        msg.configure_mock(**{
-            "channel": channel,
-            "author": mocker.Mock(),
-        })
+        msg.channel = channel
+        msg.author = mocker.Mock()
 
         ctx = mocker.Mock()
         ctx.configure_mock(**{
