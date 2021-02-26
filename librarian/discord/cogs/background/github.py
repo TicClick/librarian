@@ -1,5 +1,4 @@
 import asyncio
-import itertools as it
 import logging
 
 import arrow
@@ -7,7 +6,10 @@ import aiohttp.client_exceptions
 from discord.ext import tasks
 
 from librarian import storage
+from librarian.discord import formatters
+from librarian.discord.settings import custom
 from librarian.discord.cogs.background import base
+
 
 logger = logging.getLogger(__name__)
 
@@ -72,165 +74,133 @@ class MonitorPulls(base.BackgroundCog):
     def __init__(self, bot, *args, **kwargs):
         super().__init__(bot, *args, **kwargs)
         self.assignee_login = bot.assignee_login
-        self.title_regex = bot.language.title_regex
 
-    async def act_on_pulls(self, pulls):
-        selected_pulls = [
-            _
-            for _ in pulls if
-            self.assignee_login not in _.assignees_logins + [_.user_login]
-        ]
-        if selected_pulls and self.assignee_login:
-            logger.info(
-                "%s: adding assignee to %d pulls: %s",
-                self.name, len(selected_pulls), sorted(_.number for _ in selected_pulls)
-            )
-            await self.add_assignee(selected_pulls)
+    async def update_pull_status(self, pull, channel_id, message_model):
+        if pull.number <= self.CUTOFF_PULL_NUMBER:
+            return None
 
-        messages = {
-            pull.number: pull.discord_messages[0] if pull.discord_messages else None
-            for pull in pulls if
-            pull.number > self.CUTOFF_PULL_NUMBER
-        }
-        if messages:
-            logger.info("%s: updating %d messages", self.name, len(messages))
-            await self.update_messages(pulls, messages)
+        first_time = message_model is None
+        channel_settings = await self.bot.settings.get(channel_id)
+        reviewer_role = channel_settings.get(custom.ReviewerRole.name)
 
-    async def update_messages(self, pulls, messages):
-        logger.info(
-            "%s: updating Discord messages for %d pulls: %s",
-            self.name, len(pulls), sorted(_.number for _ in pulls)
+        content = ""
+        if reviewer_role:
+            content = "{}, ".format(formatters.Highlighter.role(reviewer_role.cast()))
+        content += channel_settings[custom.Language.name].random_highlight
+
+        embed = formatters.PullFormatter.make_embed_for(pull, self.bot.github.repo)
+        message = await self.bot.post_or_update(
+            channel_id=channel_id, message_id=None if first_time else message_model.id,
+            embed=embed, content=content
         )
-        new_messages = []
-        for pull in pulls:
-            message = messages.get(pull.number)
-            channel_id, message_id = None, None
-            if message is not None:
-                channel_id = message.channel_id
-                message_id = message.id
-            new_channel_id, new_message_id = await self.bot.post_update(pull, channel_id, message_id)
-            if message_id is None:
-                new_messages.append(storage.DiscordMessage(
-                    id=new_message_id,
-                    channel_id=new_channel_id,
-                    pull_number=pull.number
-                ))
-        self.storage.discord_messages.save(*new_messages)
+
+        if message and channel_settings.get(custom.PinMessages.name).cast():
+            if pull.state == formatters.PullState.CLOSED.name:
+                await self.bot.unpin(message)
+            else:
+                await self.bot.pin(message)
+
+        if not first_time or message is None:
+            return None
+        return storage.DiscordMessage(id=message.id, channel_id=channel_id, pull_number=pull.number)
 
     async def add_assignee(self, pulls):
-        if not pulls:
+        if not pulls or not self.assignee_login:
             return
 
-        logger.info(
-            "%s: setting assignee for %d pulls: %s",
-            self.name, len(pulls), sorted(_.number for _ in pulls)
-        )
         async with self.github.make_session() as aio_session:
             tasks = []
             for pull in pulls:
+                if self.assignee_login in pull.assignees_logins + [pull.user_login]:
+                    continue
                 future = self.github.add_assignee(pull.number, self.assignee_login, session=aio_session)
                 tasks.append(asyncio.create_task(future))
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        if tasks:
+            for pull, result in zip(pulls, results):
+                # 404 also means that you have no write access to a repository
+                if isinstance(result, Exception):
+                    logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
+
+    async def fetch_pulls(self, numbers):
+        async with self.github.make_session() as aio_session:
+            tasks = [
+                asyncio.create_task(self.github.get_single_pull(number, aio_session))
+                for number in numbers
+            ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for pull, result in zip(pulls, results):
-            # 404 also means that you have no write access to a repository
+        ok = []
+        for number, result in zip(numbers, results):
             if isinstance(result, Exception):
-                logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
+                logger.error("%s: couldn't fetch pull #%s: %s", self.name, number, result)
+            else:
+                ok.append(result)
+        return ok
 
     @tasks.loop(seconds=INTERVAL)
     async def loop(self):
         try:
-            pulls = await self.github.pulls()
-            logger.info(
-                "%s: fetched incomplete details for %d pulls: %s",
-                self.name, len(pulls), sorted(_["number"] for _ in pulls)
-            )
+            live = {_["number"]: _ for _ in await self.github.pulls()}
+            live_numbers = set(live.keys())
         except aiohttp.client_exceptions.ClientError as exc:
             logger.error("%s: failed to fetch open pulls: %s", self.name, exc)
             return
 
         with self.storage.pulls.session_scope() as db_session:
-            cached_active_pulls = {
-                _.number: _
-                for _ in self.storage.pulls.active_pulls(s=db_session)
-            }
-            logger.info(
-                "%s: DB reports %d active pulls: %s",
-                self.name, len(cached_active_pulls), sorted(cached_active_pulls.keys())
-            )
+            cached = {_.number: _ for _ in self.storage.pulls.active_pulls(s=db_session)}
+            cached_numbers = set(cached.keys())
 
-        def open_pulls_numbers(cutoff_by_update=True):
-            fetcher = self.bot.get_cog(FetchNewPulls.__name__)
-            for p in pulls:
-                pn = p["number"]
-                # new pulls should always be added from FetchGithubPulls, unless they are reopened
-                if pn not in cached_active_pulls:
-                    if fetcher.fetched(pn):
-                        yield pn
-                    continue
+        already_closed = cached_numbers - live_numbers
+        new_open = live_numbers - cached_numbers
+        updated = set()
 
-                if (
-                    cutoff_by_update and
-                    arrow.get(p["updated_at"]) <= arrow.get(cached_active_pulls[pn].updated_at)
-                ):
-                    continue
+        still_open = cached_numbers & live_numbers
+        for p in live:
+            pn = p["number"]
+            if pn in still_open:
+                if arrow.get(p["updated_at"]) <= arrow.get(cached[pn].updated_at):
+                    updated.add(pn)
 
-                yield pn
-
-        # fetch requests that are cached as not closed, but actually ARE closed
-        closed_pulls = (
-            set(cached_active_pulls.keys()) -
-            set(open_pulls_numbers(cutoff_by_update=False))
-        )
+        logger.info("%s: reported as open on GitHub: %s", self.name, sorted(live_numbers))
+        logger.info("%s: reported as open by DB: %s", self.name, sorted(cached_numbers))
         logger.info(
-            "%s: %d stale PR(s) (already closed): %s",
-            self.name, len(closed_pulls), sorted(closed_pulls)
+            "%s: fetching %s (already closed), %s (new open), %s (updated)",
+            sorted(already_closed), sorted(new_open), sorted(updated)
         )
 
-        pulls_to_actualize = set(open_pulls_numbers())
-        all_to_fetch = sorted(it.chain(pulls_to_actualize, closed_pulls))
-        logger.info(
-            "%s: %d open pulls to actualize, %d closed pulls listed as open in DB",
-            self.name, len(pulls_to_actualize), len(closed_pulls)
-        )
+        ok = await self.fetch_pulls(already_closed | new_open | updated)
+        with self.storage.session_scope() as s:
+            saved = self.storage.pulls.save_many_from_payload(ok, s=s)
+            self.sort_for_updates(saved)
 
-        async with self.github.make_session() as aio_session:
-            tasks = []
-            for number in all_to_fetch:
-                tasks.append(asyncio.create_task(self.github.get_single_pull(number, aio_session)))
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            results = {pull_id: result for pull_id, result in zip(all_to_fetch, results)}
-        logger.info("%s: fetching done", self.name)
+    async def sort_for_updates(self, pulls):
+        tasks, items = [], []
+        for pull in pulls:
+            for item in self.bot.settings.channels_by_language.values():
+                language, channels = item.language, item.channels
+                if language.match(pull.title):
+                    messages = {_.channel_id: _ for _ in pull.discord_messages}
+                    tasks.extend(
+                        asyncio.create_task(self.update_pull_status(pull, channel_id, messages.get(channel_id)))
+                        for channel_id in channels
+                    )
+                    items.extend((pull.number, channel_id) for channel_id in channels)
 
-        with self.storage.pulls.session_scope() as db_session:
-            to_save = []
-            for pull_id, result in results.items():
-                if isinstance(result, dict):
-                    to_save.append(result)
-                elif isinstance(result, Exception):
-                    logger.error("%s: couldn't fetch pull #%s: %s", self.name, pull_id, result)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        new_messages = []
+        for result, item in zip(results, items):
+            if isinstance(result, Exception):
+                logger.error(
+                    "%s: failed to post an update for pull #%d in channel #%d: %s",
+                    self.name, item[0], item[1], result
+                )
+            elif result is not None:
+                new_messages.append(result)
 
-            logger.info(
-                "%s: saving %d pulls to DB: %s",
-                self.name, len(to_save), sorted([_["number"] for _ in to_save])
-            )
-            saved = self.storage.pulls.save_many_from_payload(to_save, s=db_session)
-            saved_numbers = {_.number for _ in saved}
-
-        def worth_updating():
-            for pull in saved:
-                if self.title_regex.match(pull.title) and pull.number in all_to_fetch:
-                    yield pull
-
-            for pull in cached_active_pulls.values():
-                if (
-                    self.title_regex.match(pull.title) and
-                    pull.number not in saved_numbers and
-                    not pull.discord_messages
-                ):
-                    yield pull
-
-        await self.act_on_pulls(list(worth_updating()))
+        self.storage.discord.save_messages(*new_messages)
 
     async def status(self):
         return {}

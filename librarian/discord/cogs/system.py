@@ -5,14 +5,15 @@ import discord
 from discord.ext import commands
 
 from librarian.discord import formatters
-from librarian.discord.cogs import decorators
+from librarian.discord.cogs import helpers
 from librarian.discord.cogs.background import base
 
 logger = logging.getLogger(__name__)
 
 
 class System(commands.Cog):
-    @decorators.command(name="status")
+    @commands.command(name="status")
+    @helpers.is_owner()
     async def report_status(self, ctx: commands.Context, *args):
         """
         system information. probably only interesting to the bot owner
@@ -57,7 +58,8 @@ class System(commands.Cog):
 
         return await message.channel.send(content=formatters.pretty_output(command, output))
 
-    @decorators.public_command(name="disk")
+    @commands.command(name="disk")
+    @helpers.is_owner()
     async def show_disk_status(self, ctx: commands.Context, *args):
         """
         amount of space consumed/free on a machine that hosts Librarian

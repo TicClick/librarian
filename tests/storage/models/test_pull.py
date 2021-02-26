@@ -1,37 +1,12 @@
-import inspect
 import random
 
 import arrow
 import pytest
 
 import librarian.storage as stg
+from librarian.storage.models import pull as pull_model
 
 from tests import utils
-
-
-class TestBasics:
-    def test__init(self, storage):
-        models = inspect.getmembers(stg, predicate=lambda cls: isinstance(cls, stg.Base))
-        for _, model in models:
-            assert storage.engine.has_table(model.__tablename__)
-
-    def test__no_commit(self, storage, existing_pulls, mocker):
-        def faulty_commit():
-            raise OSError("No space left on device")
-
-        session = storage.make_session()
-        mocker.patch.object(session, "commit", faulty_commit)
-        mocker.patch.object(session, "close", side_effect=session.close)
-
-        def faulty_session_maker():
-            return session
-
-        mocker.patch.object(storage, "make_session", faulty_session_maker)
-        with pytest.raises(OSError):
-            storage.pulls.save_from_payload(random.choice(existing_pulls))
-
-        session.close.assert_called()
-        assert session.query(stg.Pull).count() == 0
 
 
 class TestPulls:
@@ -73,7 +48,7 @@ class TestPulls:
     def test__save(self, storage, existing_pulls, mocker):
         count = 0
         storage.pulls.save = mocker.Mock(side_effect=storage.pulls.save)
-        mocker.patch.object(stg.PullHelper, "save", side_effect=stg.PullHelper.save)
+        mocker.patch.object(pull_model.PullHelper, "save", side_effect=pull_model.PullHelper.save)
         with storage.session_scope() as session:
             add_object = mocker.patch.object(session, "add", side_effect=session.add)
             for p in random.sample(existing_pulls, self.MAX_PULLS):
@@ -182,39 +157,3 @@ class TestPulls:
                 sorted(_["number"] for _ in existing_pulls if _["state"] != "closed")
             ):
                 assert stored_number == existing_number
-
-
-class TestMetadata:
-    def test__basic(self, storage):
-        m = storage.metadata
-        assert m.load() == {}
-        assert m.load_field("blah") is None
-
-        for data_piece in (1, 2.3, "blah", {"nested": {"dict": "ionary"}}, ["test"], [["test"]]):
-            m.save_field("blah", data_piece)
-            assert m.load() == {"blah": data_piece}
-            assert m.load_field("blah") == data_piece
-
-        m.save({})
-        assert m.load() == {}
-        m.save({1: 2, 3: 4})
-        assert m.load() == {1: 2, 3: 4}
-
-
-class TestDiscordMessages:
-    def test__save(self, storage, existing_pulls):
-        n = random.randint(1, 100)
-        storage.discord_messages.save(*(
-            stg.DiscordMessage(
-                id=msg_id,
-                channel_id=random.randint(1, 1000),
-                pull_number=pull["number"]
-            )
-            for msg_id, pull in zip(
-                random.sample(range(1, 1000), n),
-                random.sample(existing_pulls, n)
-            )
-        ))
-
-        restored = storage.discord_messages.by_pull_numbers(*(_["number"] for _ in existing_pulls))
-        assert len(restored) == n

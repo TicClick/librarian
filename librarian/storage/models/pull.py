@@ -1,20 +1,22 @@
-import contextlib
 import datetime
 import typing
 
 import arrow
 import sqlalchemy as sql
 from sqlalchemy import orm
-from sqlalchemy.ext import declarative
+
+from librarian.storage import (
+    base,
+    utils,
+)
+
 
 PR_STATE_LEN = 32
 PR_TITLE_LEN = 512
 USER_LOGIN_LEN = 64
 
-Base = declarative.declarative_base()
 
-
-class Pull(Base):
+class Pull(base.Base):
     """
     Internal representation of a GitHub pull request that only stores necessary fields
     (some of them are flattened, see `NESTED_KEYS`).
@@ -126,131 +128,12 @@ class Pull(Base):
         return data
 
 
-class Metadata(Base):
-    """
-    Representation of the bot's state in form of dictionary, where meaningful data
-    obtained at runtime is stored (for example, the last checked pull number). The data
-    must only be composed of any basic Python objects and structures from the standard library:
-    pickle doesn't work with lambdas and can't unpickle an object if its housing module has been changed.
-
-    The state should only be accessed via `MetadataHelper`.
-    """
-
-    __tablename__ = "metadata"
-
-    id = sql.Column(sql.Integer, primary_key=True)
-    data = sql.Column(sql.PickleType, default=dict())
-
-
-class DiscordMessage(Base):
-    """
-    Representation of a Discord message, which is used to keep track of sent notifications
-    (and possibly other future things). The pull it is tied to can be accessed via the `pull` attribute
-    (see `Pull`).
-    """
-
-    __tablename__ = "embed"
-
-    id = sql.Column(sql.BigInteger, primary_key=True)
-    channel_id = sql.Column(sql.BigInteger)
-    pull_number = sql.Column(sql.Integer, sql.ForeignKey("pulls.number"))
-
-    pull = orm.relationship("Pull", back_populates="discord_messages")
-
-
-class Storage:
-    """
-    Facade class for the database, which is responsible for table initialization and maintaining database sessions.
-    It also provides access to helper classes, through which one can query individual tables:
-
-        storage = Storage("/tmp/discord.db")
-        pull = storage.pulls.by_number(1234)
-
-    Note: database sessions created via the storage itself and helpers don't commit changes automatically.
-    """
-
-    def __init__(self, dbpath: str):
-        self.engine = self.create_engine(f"sqlite:///{dbpath}")
-        self.make_session = self.init_session_maker()
-        self.create_all_tables()
-
-        self.pulls = PullHelper(self)
-        self.metadata = MetadataHelper(self)
-        self.discord_messages = DiscordMessageHelper(self)
-
-    @staticmethod
-    def create_engine(path: str) -> sql.engine.Engine:
-        return sql.create_engine(path, echo=False)
-
-    def init_session_maker(self) -> orm.Session:
-        """ Create a session factory for internal use. """
-        return orm.scoped_session(orm.sessionmaker(
-            bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False
-        ))
-
-    def create_all_tables(self):
-        Base.metadata.create_all(self.engine)
-
-    @contextlib.contextmanager
-    def session_scope(self) -> orm.Session:
-        """
-        Context manager that makes sure a new session either commits the changes on leaving the `with` block,
-        or rolls them back completely. Usage example:
-
-            with storage.session_scope as session:
-                obj = session.query(Pull).count()
-                session.add(make_new_pull())
-
-        Note: outside of the test environment, you don't need to use the scope directly.
-        Instead, use the one provided by table helpers.
-        """
-
-        session = self.make_session()
-        try:
-            yield session
-            session.commit()
-        except (Exception, BaseException):
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-
-class Helper:
-    """
-    Base class for table-specific helpers that includes access to the database and session factory.
-    """
-
-    def __init__(self, storage: Storage):
-        self.storage = storage
-        self.session_scope = storage.session_scope
-
-
-def optional_session(f):
-    """
-    A decorator that lets methods that otherwise require an externally created session
-    to be called without it -- the session will be made on the fly. Useful for single calls.
-    """
-
-    # TODO: explicitly check that a function has an argument called s
-
-    def inner(self, *args, **kwargs):
-        session = kwargs.pop("s", None)
-        if session is not None:
-            return f(self, *args, s=session, **kwargs)
-
-        with self.session_scope() as s:
-            return f(self, *args, s=s, **kwargs)
-
-    return inner
-
-
-class PullHelper(Helper):
+class PullHelper(base.Helper):
     """
     A class that interfaces the table with GitHub pulls. See individual methods for usage details.
     """
 
-    @optional_session
+    @utils.optional_session
     def save_from_payload(self, payload: dict, s: orm.Session, insert: bool = True):
         """
         Save a pull from JSON payload, possibly updating it on existence.
@@ -262,7 +145,7 @@ class PullHelper(Helper):
 
         self.save(Pull(payload), s=s, insert=insert)
 
-    @optional_session
+    @utils.optional_session
     def save(self, pull: Pull, s: orm.Session, insert: bool = True):
         """
         Save a pull passed as an ORM object, possibly updating it on existence.
@@ -279,7 +162,7 @@ class PullHelper(Helper):
         else:
             s.add(pull)
 
-    @optional_session
+    @utils.optional_session
     def save_many_from_payload(self, pulls_list: typing.List[dict], s: orm.Session) -> typing.List[Pull]:
         """
         Save and update multiple pulls from a list of JSON payloads
@@ -304,17 +187,17 @@ class PullHelper(Helper):
 
         return existing
 
-    @optional_session
+    @utils.optional_session
     def by_number(self, pull_number: int, s: orm.Session) -> typing.Optional[Pull]:
         """ Return a pull by its number, if it exists. """
         return s.query(Pull).filter(Pull.number == pull_number).first()
 
-    @optional_session
+    @utils.optional_session
     def remove(self, pull_number: int, s: orm.Session):
         """ Delete a pull by its number. """
         s.query(Pull).filter(Pull.number == pull_number).delete()
 
-    @optional_session
+    @utils.optional_session
     def count_merged(
         self, start_date: datetime.datetime, end_date: datetime.datetime, s: orm.Session
     ) -> typing.List[Pull]:
@@ -333,59 +216,7 @@ class PullHelper(Helper):
             Pull.merged_at.between(start_date, end_date)
         ).all()
 
-    @optional_session
+    @utils.optional_session
     def active_pulls(self, s: orm.Session):
         """ List all currently open pulls. """
         return s.query(Pull).filter(Pull.state != "closed").all()
-
-
-class MetadataHelper(Helper):
-    """
-    A class that interfaces the bot's stored state and lets using it as a key-value storage. Example:
-
-        storage = Storage("/tmp/discord.db")
-        storage.metadata.save_field("first_three_numbers", [1, 2, 3])
-        secret_numbers = storage.metadata.load_field("first_three_numbers")
-    """
-
-    def load(self) -> dict:
-        """ Load and return the full state. """
-        with self.session_scope() as s:
-            result = s.query(Metadata).filter().first()
-            if result is None:
-                result = Metadata(data=dict())
-                s.add(result)
-            return result.data
-
-    def save(self, metadata: dict):
-        """ Store passed state in the database. """
-        with self.session_scope() as s:
-            result = s.query(Metadata).filter().first()
-            result.data = metadata
-            s.add(result)
-
-    def load_field(self, key: str) -> typing.Any:
-        """ Access a specific state value by its key. """
-        return self.load().get(key)
-
-    def save_field(self, key, value):
-        """ Save a single value by its key. """
-        data = self.load()
-        data[key] = value
-        self.save(data)
-
-
-class DiscordMessageHelper(Helper):
-    """
-    A class that interfaces the table with Discord messages. See individual methods for usage details.
-    """
-
-    def save(self, *messages: typing.List[DiscordMessage]):
-        """ Save multiple messages into the database. """
-        with self.session_scope() as s:
-            s.add_all(messages)
-
-    def by_pull_numbers(self, *pull_numbers: typing.List[int]):
-        """ Return all known messages that are tied to the specified pulls. """
-        with self.session_scope() as s:
-            return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()

@@ -100,3 +100,19 @@ class PullFormatter:
             icon_url=state.icon
         )
         return embed
+
+
+class Highlighter:
+    @staticmethod
+    def cast(obj):
+        return obj if isinstance(obj, int) else obj.id
+
+    @classmethod
+    def role(cls, obj):
+        return "<@&{}>".format(cls.cast(obj))
+
+    @classmethod
+    def chain_users(cls, users, separator=", "):
+        return separator.join(
+            "<@{}>".format(cls.cast(_)) for _ in users
+        )
