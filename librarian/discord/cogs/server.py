@@ -1,11 +1,13 @@
 import json
 import logging
 
+import discord as discord_py
 from discord.ext import commands
+from librarian import discord
 
 from librarian.discord import formatters
 from librarian.discord.cogs import helpers
-from librarian.discord.settings import registry
+from librarian.discord.settings import custom, registry
 
 logger = logging.getLogger(__name__)
 
@@ -136,3 +138,39 @@ class Server(commands.Cog):
         await ctx.bot.settings.reset(ctx.message.channel.id)
         reply = "removed custom settings for this channel"
         return await ctx.message.channel.send(content=reply)
+
+    @commands.command(name="fetch")
+    @helpers.is_promoted()
+    async def fetch(self, ctx: commands.Context):
+        """
+        repost missing open pulls for current channel's language from GitHub
+
+        usage:
+            .fetch
+        """
+
+        channel_id = ctx.message.channel.id
+        language = ctx.bot.settings.get(channel_id).get(custom.Language.name)
+        if language is None:
+            content = "no language set for this channel (see `.set help`)"
+            return await ctx.message.channel.send(content=content)
+
+        # FIXME: put update_pull_status somewhere else
+        monitor = ctx.bot.get_cog("MonitorPulls")
+        count = 0
+        for pull in self.storage.pulls.active_pulls():
+            message_exists = any(
+                _.channel_id == channel_id
+                for _ in (pull.discord_messages or [])
+            )
+            if language.match(pull.title) and not message_exists:
+                try:
+                    await monitor.update_pull_status(pull, channel_id, None)
+                    count += 1
+                except discord_py.DiscordException as exc:
+                    logger.error(
+                        "%s: Failed to post a new message for pull #%d in channel #%d: %s",
+                        self.name, pull.number, channel_id, exc
+                    )
+
+        await ctx.message.channel.send(content=f"fetched {count} pull(s)")

@@ -149,9 +149,8 @@ class MonitorPulls(base.BackgroundCog):
             logger.error("%s: failed to fetch open pulls: %s", self.name, exc)
             return
 
-        with self.storage.pulls.session_scope() as db_session:
-            cached = {_.number: _ for _ in self.storage.pulls.active_pulls(s=db_session)}
-            cached_numbers = set(cached.keys())
+        cached = {_.number: _ for _ in self.storage.pulls.active_pulls()}
+        cached_numbers = set(cached.keys())
 
         already_closed = cached_numbers - live_numbers
         new_open = live_numbers - cached_numbers
