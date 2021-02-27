@@ -14,5 +14,11 @@ async def promoted_users(ctx: commands.Context):
 
 def is_promoted():
     async def predicate(ctx):
-        return ctx.message.author.id in await promoted_users(ctx)
+        permissions = ctx.message.channel.permissions_for(ctx.message.author)
+        return (
+            ctx.message.author.id == ctx.message.channel.guild.owner_id or
+            permissions.manage_guild or permissions.administrator or
+            ctx.message.author.id in await promoted_users(ctx)
+        )
+
     return commands.check(predicate)
