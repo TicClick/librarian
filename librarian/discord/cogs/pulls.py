@@ -1,3 +1,4 @@
+import argparse
 import logging
 
 import arrow
@@ -13,73 +14,58 @@ from librarian.discord.settings import custom
 logger = logging.getLogger(__name__)
 
 
-class CountArgparser:
-    LAST_MONTH = "lastmonth"
+class CountArgparser(argparse.ArgumentParser):
+    def __init__(self):
+        super().__init__()
+        self.add_argument("-f", "--from", dest="from_", help="start date (inclusive)", required=True, type=arrow.get)
+        self.add_argument("-t", "--to", dest="to", help="end date (exclusive)", required=True, type=arrow.get)
+        self.add_argument("-l", "--lang", "--language", dest="language", help="language code")
 
-    @classmethod
-    def today_end(cls):
-        return arrow.get().ceil("day")
-
-    @classmethod
-    def last_month_end(cls):
-        return cls.today_end().shift(months=-1).ceil("month")
-
-    @classmethod
-    def parse(cls, args):
-        if not args:
-            end_date = cls.today_end()
-            return end_date.floor("month"), end_date
-
-        if len(args) == 1 and args[0] == cls.LAST_MONTH:
-            end_date = cls.last_month_end()
-            return end_date.floor("month"), end_date
-
-        if len(args) == 2:
-            start_date = arrow.get(args[0])
-            end_date = arrow.get(args[1])
-            if start_date > end_date:
-                start_date, end_date = end_date, start_date
-
-            return start_date.floor("day"), end_date.ceil("day")
-
-        raise ValueError(f"Incorrect arguments {args}")
+    def error(self, message):
+        raise ValueError(message)
 
 
 class Pulls(commands.Cog):
+    def __init__(self):
+        super().__init__()
+        self.parser = CountArgparser()
+
     @commands.command()
-    async def count(self, ctx: commands.Context, *args):
+    async def list(self, ctx: commands.Context, *args):
         """
-        list pull requests merged within a time span. works only when a language code is set for the channel
+        list pull requests merged within a time span
 
-        .count: current month
-        .count lastmonth: the last month
-        .count <from> <to>: anything between these two. example: 2020-08 2020-10-01
+        usage:
+        .list --from 2020-01-01 --to 2021-01-01 --language ru
         """
-
-        settings = await ctx.bot.settings.get(ctx.message.channel.id)
-        # TODO: use optional language code parameter
-        language = settings.get(custom.Language.name)
-        if language is None:
-            reply = "no language set for this channel -- see `.help set` on how to do that"
-            return await ctx.message.channel.send(content=reply)
 
         try:
-            start_date, end_date = CountArgparser.parse(args)
-        except ValueError:
-            return await ctx.send_help(Pulls.count.name)
+            args = self.parser.parse_args(args)
+        except ValueError as exc:
+            return await ctx.message.channel.send(content=str(exc))
 
-        pulls = ctx.bot.storage.pulls.count_merged(start_date=start_date.datetime, end_date=end_date.datetime)
+        if args.language is None:
+            settings = await ctx.bot.settings.get(ctx.message.channel.id)
+            language = settings.get(custom.Language.name)
+            if language is None:
+                reply = "need to add --language code or have the language set for this channel"
+                return await ctx.message.channel.send(content=reply)
+            args.language = language
+        else:
+            args.language = custom.Language(args.language)
+
+        pulls = ctx.bot.storage.pulls.count_merged(start_date=args.from_.datetime, end_date=args.to.datetime)
         pulls = sorted(
-            filter(lambda p: language.match(p.title), pulls),
+            filter(lambda p: args.language.match(p.title), pulls),
             key=lambda p: p.merged_at
         )
         logger.debug(
             "Pulls for %s in [%s, %s): %s",
-            language.code, start_date, end_date, " ".join(str(_.number) for _ in pulls)
+            language.code, args.from_.datetime, args.to.datetime, " ".join(str(_.number) for _ in pulls)
         )
 
-        date_range = "[{}, {}]".format(start_date.date(), end_date.date())
-        msg = "{} pulls with `{}` language code merged during {}".format(len(pulls), language.code, date_range)
+        date_range = "[{}, {}]".format(args.from_.date(), args.to.date())
+        msg = "{} pulls with `{}` language code merged during {}".format(len(pulls), args.language.code, date_range)
 
         if not pulls:
             return await ctx.message.channel.send(content=msg)

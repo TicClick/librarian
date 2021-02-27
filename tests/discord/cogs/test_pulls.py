@@ -12,44 +12,27 @@ def to_arrow(dt=None):
 
 
 class TestCountArgparser:
-    @pytest.mark.freeze_time
-    def test__date_range(self):
-        today_end = arrow.get().ceil("day")
-        this_month_beginning = today_end.floor("month")
-        last_month_beginning = this_month_beginning.shift(months=-1)
-        last_month_end = last_month_beginning.ceil("month")
+    def test__basic(self):
+        parser = pulls.CountArgparser()
 
-        for args, start, end, expect_to_fail in (
-            ([], this_month_beginning, today_end, False),
-            ([pulls.CountArgparser.LAST_MONTH], last_month_beginning, last_month_end, False),
-            (
-                ["2020-01-01", "2021-01-01"],
-                arrow.get("2020-01-01").floor("day"),
-                arrow.get("2021-01-01").ceil("day"),
-                False,
-            ),
-            (
-                ["2030-01-01", "2020-01-01"],  # dates are swapped
-                arrow.get("2020-01-01").floor("day"),
-                arrow.get("2030-01-01").ceil("day"),
-                False,
-            ),
-            (
-                ["2020-01", "2020-05"],
-                arrow.get("2020-01-01").floor("day"),
-                arrow.get("2020-05-01").ceil("day"),
-                False
-            ),
-            (["nonsense"], None, None, True),
-            (["2020-01-01"], None, None, True),
+        for bad_args in (
+            ["2020-01-01"],
+            ["2020-01-02" "2020-01-04"],
+            ["--from", "2020-01-05"],
+            ["--to", "2020-01-05"],
         ):
-            if expect_to_fail:
-                with pytest.raises(ValueError):
-                    pulls.CountArgparser.parse(args)
-            else:
-                parsed_start, parsed_end = pulls.CountArgparser.parse(args)
-                assert start == parsed_start
-                assert end == parsed_end
+            with pytest.raises(ValueError):
+                parser.parse_args(bad_args)
+
+        for args in (
+            ["--from", "2020-01-01", "--to", "2021-01"],
+            ["--to", "2021-05", "--from", "2020-01-01"],
+            ["--language", "ru", "--to", "2021-05", "--from", "2020-01-01"],
+            ["-l", "ru", "-t", "2021-05", "-f", "2020-01-01"],
+        ):
+            args = parser.parse_args(args)
+            assert isinstance(args.from_, arrow.Arrow)
+            assert isinstance(args.to, arrow.Arrow)
 
 
 class TestPullsCog:
@@ -63,23 +46,20 @@ class TestPullsCog:
             return to_arrow(pull["merged_at"]).strftime("%Y-%m-%d")
 
         def args_maker():
-            yield []
-            yield [pulls.CountArgparser.LAST_MONTH]
             for _ in range(10):
-                yield [pick_any(), pick_any()]
+                yield ["--from", pick_any(), "--to", pick_any()]
 
-            yield ["1900-01-01", "2000-01-01"]
-
+        parser = pulls.CountArgparser()
         await client.settings.update(1, 2, ["language", language_code])
         for args in args_maker():
-            # tested with test__date_range
-            start, end = pulls.CountArgparser.parse(args)
+            # tested with TestCountArgparser.test__basic
+            parsed_args = parser.parse_args(args)
 
             ctx = make_context()
             ctx.message.channel.id = 1
             ctx.message.channel.guild.id = 2
             Pulls = client.get_cog(pulls.Pulls.__name__)
-            await Pulls.count(ctx, *args)
+            await Pulls.list(ctx, *args)
 
             for i, call in enumerate(ctx.message.channel.send.call_args_list):
                 if i == 0:
@@ -95,20 +75,19 @@ class TestPullsCog:
                 _
                 for _ in merged_only if
                 (
-                    start <= arrow.get(_["merged_at"]) < end and
+                    parsed_args.from_ <= arrow.get(_["merged_at"]) < parsed_args.to and
                     language.match(_["title"])
                 )
             ]
-            assert len(merged) == cnt, (", ".join(_["merged_at"] for _ in merged), start, end)
+            assert len(merged) == cnt, (", ".join(_["merged_at"] for _ in merged), parsed_args.from_, parsed_args.to)
 
     @pytest.mark.parametrize(
         "args",
         [
             ["blah"],
-            [pulls.CountArgparser.LAST_MONTH, pulls.CountArgparser.LAST_MONTH],
-            ["nonsense", "2020-01-01"],
-            ["2020000+123-3", "2000-02-01"],
-            ["2020-01-01", "2020-01-02", "2020-01-03"],
+            ["--from", "2020-01-01"],
+            ["--to", "2020-01-01"],
+            ["--from", "2020-01-01", "--to", "nonsense"],
         ]
     )
     async def test__bad_count(self, client, make_context, args, language_code):
@@ -118,5 +97,11 @@ class TestPullsCog:
         await client.settings.update(1, 2, ["language", language_code])
 
         Pulls = client.get_cog(pulls.Pulls.__name__)
-        await Pulls.count(ctx, *args)
-        assert ctx.send_help.call_args.args[0] == "count"
+        await Pulls.list(ctx, *args)
+        assert any(
+            _ in ctx.message.channel.send.call_args[1]["content"]
+            for _ in (
+                "the following arguments are required",
+                "invalid get value"
+            )
+        ), ctx.message.channel.send.call_args[1]["content"]
