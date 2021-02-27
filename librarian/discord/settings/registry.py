@@ -117,7 +117,7 @@ class Registry:
 
                 channel_settings.update(updated)
                 self.__cache[channel_id] = channel_settings
-                raw_settings = await self.get(channel_id, raw=True)
+                raw_settings = self.get(channel_id, raw=True)
                 self.helper.save_channel_settings(channel_id, guild_id, raw_settings)
                 return settings
 
@@ -136,7 +136,7 @@ class Registry:
                 self.helper.delete_channel_settings(channel_id)
                 del self.__cache[channel_id]
 
-    async def get(self, channel_id, raw=False):
+    def get(self, channel_id, raw=False):
         settings = self.__cache[channel_id]
         if raw:
             settings = {k: v.cast() for k, v in settings.items()}

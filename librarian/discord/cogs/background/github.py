@@ -80,7 +80,7 @@ class MonitorPulls(base.BackgroundCog):
             return None
 
         first_time = message_model is None
-        channel_settings = await self.bot.settings.get(channel_id)
+        channel_settings = self.bot.settings.get(channel_id)
         reviewer_role = channel_settings.get(custom.ReviewerRole.name)
 
         content = ""

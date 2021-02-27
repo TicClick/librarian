@@ -75,7 +75,7 @@ class TestRegistry:
     async def test__init(self, storage, mocker):
         r = registry.Registry(storage.discord)
         assert not r._Registry__cache
-        assert await r.get(12345) == r.default_settings() == {custom.PinMessages.name: True}
+        assert r.get(12345) == r.default_settings() == {custom.PinMessages.name: True}
 
         dummy = {custom.PinMessages.name: False, "language": "ru"}
         storage.discord.save_channel_settings(12345, 67890, dummy)
@@ -86,7 +86,7 @@ class TestRegistry:
         storage.discord.session_scope = mocker.Mock()
         storage.discord.load_channel_settings = mocker.Mock()
 
-        assert await rr.get(12345) == dummy
+        assert rr.get(12345) == dummy
         assert not storage.session_scope.called
         assert not storage.discord.session_scope.called
         assert not storage.discord.load_channel_settings.called
@@ -129,7 +129,7 @@ class TestRegistry:
 
         await r.update(1234, 1, [custom.PinMessages.name, "False"])
         assert storage.discord.save_channel_settings.called
-        assert await r.get(1234) == {custom.PinMessages.name: False}
+        assert r.get(1234) == {custom.PinMessages.name: False}
         assert not storage.discord.load_channel_settings.called
 
         storage.discord.save_channel_settings.reset_mock()
@@ -138,7 +138,7 @@ class TestRegistry:
 
         await r.update(1234, 1, [custom.Language.name, "ru"])
         assert storage.discord.save_channel_settings.called
-        assert await r.get(1234) == {custom.PinMessages.name: False, custom.Language.name: "ru"}
+        assert r.get(1234) == {custom.PinMessages.name: False, custom.Language.name: "ru"}
 
         for payload in (
             ["dummy", "setting"],
@@ -150,7 +150,7 @@ class TestRegistry:
 
         with pytest.raises(ValueError):
             await r.update(911, 1, [custom.Language.name, "ru", "nonsense", "1234", custom.PinMessages.name, False])
-        assert await r.get(911) == r.default_settings()
+        assert r.get(911) == r.default_settings()
 
         assert 1234 in r.channels_by_language["ru"].channels
         await r.update(1234, 1, [custom.Language.name, "en"])
@@ -165,10 +165,10 @@ class TestRegistry:
         storage.discord.save_channel_settings(12345, 67890, dummy)
 
         rr = registry.Registry(storage.discord)
-        assert await rr.get(12345) == dummy
+        assert rr.get(12345) == dummy
         assert 12345 in rr.channels_by_language["ru"].channels
 
         await rr.reset(12345)
-        assert await rr.get(12345) == rr.default_settings()
+        assert rr.get(12345) == rr.default_settings()
         assert storage.discord.load_channel_settings(12345) is None
         assert "ru" not in rr.channels_by_language

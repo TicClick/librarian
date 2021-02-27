@@ -132,7 +132,7 @@ class TestServerCog:
         )
         assert ctx.kwargs()["content"] == "done"
 
-        settings = await client.settings.get(ctx.message.channel.id)
+        settings = client.settings.get(ctx.message.channel.id)
         assert settings == {custom.PinMessages.name: True, custom.ReviewerRole.name: 12345, custom.Language.name: "tr"}
 
         for payload in (
@@ -144,7 +144,7 @@ class TestServerCog:
         ):
             await Server.set(ctx, *payload)
             assert "input error" in ctx.kwargs()["content"]
-            assert await client.settings.get(ctx.message.channel.id) == settings
+            assert client.settings.get(ctx.message.channel.id) == settings
 
     async def test__reset_settings(self, client, storage, make_context, mocker):
         Server = client.get_cog(server.Server.__name__)
@@ -165,4 +165,4 @@ class TestServerCog:
 
         await Server.reset(ctx)
         assert ctx.kwargs()["content"] == "removed custom settings for this channel"
-        assert await client.settings.get(ctx.message.channel.id) == client.settings.default_settings()
+        assert client.settings.get(ctx.message.channel.id) == client.settings.default_settings()

@@ -90,7 +90,7 @@ class Server(commands.Cog):
             reply = "users that can edit settings: {}".format(formatters.Highlighter.chain_users(allowed))
 
         elif entity == "settings":
-            settings = await ctx.bot.settings.get(ctx.message.channel.id, raw=True)
+            settings = ctx.bot.settings.get(ctx.message.channel.id, raw=True)
             reply = formatters.codewrap(json.dumps(settings, indent=self.SETTINGS_INDENT))
 
         return await ctx.message.channel.send(content=reply)
@@ -158,7 +158,7 @@ class Server(commands.Cog):
         # FIXME: put update_pull_status somewhere else
         monitor = ctx.bot.get_cog("MonitorPulls")
         count = 0
-        for pull in self.storage.pulls.active_pulls():
+        for pull in ctx.bot.storage.pulls.active_pulls():
             message_exists = any(
                 _.channel_id == channel_id
                 for _ in (pull.discord_messages or [])

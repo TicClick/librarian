@@ -49,7 +49,7 @@ class Pulls(commands.Cog):
             return await ctx.message.channel.send(content=str(exc))
 
         if args.language is None:
-            settings = await ctx.bot.settings.get(ctx.message.channel.id)
+            settings = ctx.bot.settings.get(ctx.message.channel.id)
             language = settings.get(custom.Language.name)
             if language is None:
                 reply = "need to add --language code or have the language set for this channel"
