@@ -158,23 +158,23 @@ class MonitorPulls(base.BackgroundCog):
         updated = set()
 
         still_open = cached_numbers & live_numbers
-        for p in live:
+        for p in live.values():
             pn = p["number"]
             if pn in still_open:
-                if arrow.get(p["updated_at"]) <= arrow.get(cached[pn].updated_at):
+                if arrow.get(p["updated_at"]) > arrow.get(cached[pn].updated_at):
                     updated.add(pn)
 
         logger.info("%s: reported as open on GitHub: %s", self.name, sorted(live_numbers))
         logger.info("%s: reported as open by DB: %s", self.name, sorted(cached_numbers))
         logger.info(
             "%s: fetching %s (already closed), %s (new open), %s (updated)",
-            sorted(already_closed), sorted(new_open), sorted(updated)
+            self.name, sorted(already_closed), sorted(new_open), sorted(updated)
         )
 
         ok = await self.fetch_pulls(already_closed | new_open | updated)
         with self.storage.session_scope() as s:
             saved = self.storage.pulls.save_many_from_payload(ok, s=s)
-            self.sort_for_updates(saved)
+            await self.sort_for_updates(saved)
 
     async def sort_for_updates(self, pulls):
         tasks, items = [], []

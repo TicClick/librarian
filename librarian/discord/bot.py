@@ -53,7 +53,7 @@ class Client(commands.Bot):
         await self.start_routines()
 
     async def post_or_update(self, channel_id, message_id=None, content=None, embed=None):
-        channel = self.bot.get_channel(channel_id)
+        channel = self.get_channel(channel_id)
         if channel is None:
             channel = await self.fetch_channel(channel_id)
 
