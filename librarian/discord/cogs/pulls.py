@@ -65,7 +65,7 @@ class Pulls(commands.Cog):
         )
         logger.debug(
             "Pulls for %s in [%s, %s): %s",
-            language.code, args.from_.datetime, args.to.datetime, " ".join(str(_.number) for _ in pulls)
+            args.language.code, args.from_.datetime, args.to.datetime, " ".join(str(_.number) for _ in pulls)
         )
 
         date_range = "[{}, {}]".format(args.from_.date(), args.to.date())
