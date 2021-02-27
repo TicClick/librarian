@@ -6,28 +6,36 @@
 
 a Discord bot that tracks new pull requests of the [ppy/osu-wiki](https://github.com/ppy/osu-wiki) repository. it's a GitHub web hook, except not really:
 
-- it's not a GitHub web hook, it's a service you have to host
+- it's not a GitHub web hook, it's a chat bot you need to host or invite
 - it can be repurposed for another repository you don't own (as well as `ppy/osu-wiki`)
 - it's stateful (has its own local database to work around API slowness)
 - it has latency (up to 2 minutes in a worst case scenario)
 - you can talk to it using miscellaneous commands. sometimes it replies
 
-## features
+### features
 
 - notify reviewers in Discord about new relevant pull requests
 - pin a pull request in Discord and keep track of it until it's closed
 - merge statistics over a time period
 
-## commands
-
-- `.help` for general overview
-- `.help commandname` for details on `commandname`
-
 ## usage
 
-I'm considering providing it as a service, but there's a long way to go. for now, [set it up yourself](#host-your-own-installation).
+- [add the bot to your server](https://discord.com/api/oauth2/authorize?client_id=742750842737655830&permissions=11264&scope=bot)
+- set up a channel for announcements using the `.set` command:
+    ```
+    .set language ru
+    .set reviewer-role @role_mention  # optional, if you want to receive pings
+    ```
+- use `.help` for general overview
+- use `.help commandname` for details on `commandname`
 
 ## host your own installation
+
+### credentials and setup
+
+requirements:
+- `python3` and `git`
+- `tmux` if you want to run it unattended
 
 1. [create a Discord application](https://discord.com/developers/applications) and add a bot account to it.
 2. add the bot to your server using a modified version of an OAuth2 authorization link from [Bot Authorization Flow](https://discord.com/developers/docs/topics/oauth2#bot-authorization-flow).
@@ -35,30 +43,27 @@ I'm considering providing it as a service, but there's a long way to go. for now
     ```bash
     git clone https://github.com/TicClick/librarian
     ```
-    create a modified version of `config/config.example.yaml` and fill in whatever data you need
-4. to benefit from GitHub's extended API limits, query it using an API token (get one at [Personal access tokens](https://github.com/settings/tokens))
+    create a modified version of `config/config.example.yaml` and fill in whatever data you need. to benefit from GitHub's extended API limits, query it using an API token (get one at [Personal access tokens](https://github.com/settings/tokens))
+4. setup and run the bot:
+    ```bash
+    ./bin.sh setup
+    tmux new -d -s librarian-bot "./bin.sh run --config /path/to/config"
+    ```
 
-## maintenance
+### maintenance
 
-to update to the last stable version (make sure to stop the bot beforehand):
+stop the bot:
+
+```bash
+tmux kill-session -t librarian
+```
+
+update to the last stable version (make sure to stop the bot beforehand):
 
 ```bash
 git fetch && git checkout main
 git pull origin main
 git checkout $( git tag --list --sort=v:refname | tail -n 1 )
-```
-
-to setup the bot, run it, and be able to leave the shell without it terminating:
-
-```bash
-./bin.sh setup
-tmux new -d -s librarian "./bin.sh run --config /path/to/config"
-```
-
-to stop it:
-
-```bash
-tmux kill-session -t librarian
 ```
 
 for anything else, use `bin.sh` from the source directory:
@@ -79,4 +84,5 @@ if anything goes wrong, make extensive use of a runtime log located at `{runtime
 
 ## credits
 
-see `requirements.txt` for a list of cool packages
+- bot avatar by [@drstrange777](https://twitter.com/drstrange777)
+- see `requirements.txt` for a list of cool packages

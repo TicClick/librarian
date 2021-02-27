@@ -14,9 +14,12 @@ logger = logging.getLogger(__name__)
 class System(commands.Cog):
     @commands.command(name="status")
     @helpers.is_owner()
-    async def report_status(self, ctx: commands.Context, *args):
+    async def report_status(self, ctx: commands.Context):
         """
         system information. probably only interesting to the bot owner
+
+        usage:
+            .status
         """
 
         statuses = await asyncio.gather(*(
@@ -63,6 +66,9 @@ class System(commands.Cog):
     async def show_disk_status(self, ctx: commands.Context, *args):
         """
         amount of space consumed/free on a machine that hosts Librarian
+
+        usage:
+            .disk
         """
 
         await self.run_and_reply(ctx.message, ["/bin/df", "-Ph", "/"])

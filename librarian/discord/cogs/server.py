@@ -24,8 +24,10 @@ class Server(commands.Cog):
     @helpers.is_promoted()
     async def promote_users(self, ctx: commands.Context):
         """
-        allow mentioned users to change the bot's settings.
-        can be used by the server's owner or other promoted users
+        allow users to change the bot's settings or promote others. always available to the server's owner
+
+        usage:
+            .promote @Nickname @AnotherNickname
         """
 
         helper = ctx.bot.storage.discord
@@ -43,8 +45,10 @@ class Server(commands.Cog):
     @helpers.is_promoted()
     async def demote_users(self, ctx: commands.Context):
         """
-        disallow mentioned users to change the bot's settings.
-        can be used by the server's owner or other promoted users
+        disallow users to change the bot's settings or promote others. the server's owner is always promoted
+
+        usage:
+            .demote @Nickname @AnotherNickname
         """
 
         helper = ctx.bot.storage.discord
@@ -65,8 +69,12 @@ class Server(commands.Cog):
         """
         print different things
 
-        .show promoted: users that can edit settings
-        .show settings: current settings
+        usage:
+            .show <thing type>
+
+        examples:
+            .show promoted: list users that can change settings
+            .show settings: current channel settings
         """
 
         if not args or len(args) > 1:
@@ -91,7 +99,12 @@ class Server(commands.Cog):
     async def set(self, ctx: commands.Context, *args):
         """
         change translation-related settings
-        example: .set language ru reviewer-role 12345
+
+        usage:
+            .set setting-name setting-value ...
+
+        example:
+            .set language ru reviewer-role 12345
 
         known settings:
         """
@@ -115,6 +128,9 @@ class Server(commands.Cog):
         """
         IMMEDIATELY reset settings and promoted users for this channel,
         effectively disabling all pings and GitHub-related subscriptions
+
+        usage:
+            .reset
         """
 
         await ctx.bot.settings.reset(ctx.message.channel.id)

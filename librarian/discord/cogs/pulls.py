@@ -36,7 +36,11 @@ class Pulls(commands.Cog):
         list pull requests merged within a time span
 
         usage:
-        .list --from 2020-01-01 --to 2021-01-01 --language ru
+            .list --from <date> --to <date> --language <code>
+
+        examples:
+            .list --from 2021-01-01 --to 2021-01-31 --language ru
+            .list -f 2020-01 -t 2020-02 -l ru
         """
 
         try:
