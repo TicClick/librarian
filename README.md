@@ -20,7 +20,7 @@ a Discord bot that tracks new pull requests of the [ppy/osu-wiki](https://github
 
 ## usage
 
-- [add the bot to your server](https://discord.com/api/oauth2/authorize?client_id=742750842737655830&permissions=11264&scope=bot)
+- ![add the bot](https://img.shields.io/badge/-invite%20Librarian%20-718efc?style=flat) to your server
 - set up a channel for announcements using the `.set` command:
     ```
     .set language ru
