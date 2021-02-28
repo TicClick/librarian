@@ -157,7 +157,7 @@ class Server(commands.Cog):
 
         # FIXME: put update_pull_status somewhere else
         monitor = ctx.bot.get_cog("MonitorPulls")
-        count = 0
+        messages = []
         for pull in ctx.bot.storage.pulls.active_pulls():
             message_exists = any(
                 _.channel_id == channel_id
@@ -165,12 +165,13 @@ class Server(commands.Cog):
             )
             if language.match(pull.title) and not message_exists:
                 try:
-                    await monitor.update_pull_status(pull, channel_id, None)
-                    count += 1
+                    messages.append(await monitor.update_pull_status(pull, channel_id, None))
                 except discord_py.DiscordException as exc:
                     logger.error(
                         "%s: Failed to post a new message for pull #%d in channel #%d: %s",
                         self.name, pull.number, channel_id, exc
                     )
 
-        await ctx.message.channel.send(content=f"fetched {count} pull(s)")
+        if messages:
+            ctx.bot.storage.discord.save_messages(*messages)
+        await ctx.message.channel.send(content=f"fetched {len(messages)} pull(s)")
