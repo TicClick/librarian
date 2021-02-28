@@ -64,10 +64,11 @@ class Client(commands.Bot):
 
         else:
             try:
-                logger.debug("Updating existing message #%s", message_id)
+                logger.debug("Reading/updating existing message #%s", message_id)
                 message = await channel.fetch_message(message_id)  # type: discord.Message
             except discord.NotFound:
                 logger.error("Message #%s wasn't found", message_id)
+                self.storage.discord.delete_message(message_id, channel_id)
                 message = None
             else:
                 await message.edit(embed=embed)
