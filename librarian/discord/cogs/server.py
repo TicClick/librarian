@@ -26,7 +26,8 @@ class Server(commands.Cog):
     @helpers.is_promoted()
     async def promote_users(self, ctx: commands.Context):
         """
-        allow users to change the bot's settings or promote others. always available to the server's owner
+        allow users to change the bot's settings or promote others.
+        always available to the server's owner and managers
 
         usage:
             .promote @Nickname @AnotherNickname
@@ -47,7 +48,8 @@ class Server(commands.Cog):
     @helpers.is_promoted()
     async def demote_users(self, ctx: commands.Context):
         """
-        disallow users to change the bot's settings or promote others. the server's owner is always promoted
+        disallow users to change the bot's settings or promote others.
+        the server's owner and managers are always promoted
 
         usage:
             .demote @Nickname @AnotherNickname
@@ -75,7 +77,7 @@ class Server(commands.Cog):
             .show <thing type>
 
         examples:
-            .show promoted: list users that can change settings
+            .show promoted: list users that can change settings (besides admins/managers)
             .show settings: current channel settings
         """
 
@@ -83,11 +85,16 @@ class Server(commands.Cog):
             return await ctx.send_help(Server.show.name)
 
         entity = args[0]
-        reply = f"unknown type {entity}"
+        reply = f"unknown category `{entity}` -- see `.help show`"
 
         if entity == "promoted":
             allowed = await helpers.promoted_users(ctx)
-            reply = "users that can edit settings: {}".format(formatters.Highlighter.chain_users(allowed))
+            reply = (
+                "users that can edit settings:\n"
+                "- default: server admins and managers"
+            )
+            if allowed:
+                reply += "\n- custom: {}".format(formatters.Highlighter.chain_users(allowed))
 
         elif entity == "settings":
             settings = ctx.bot.settings.get(ctx.message.channel.id, raw=True)

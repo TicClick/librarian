@@ -72,7 +72,7 @@ class TestServerCog:
 
         assert not storage.discord.custom_promoted_users(1)
         await Server.show(ctx, "test")
-        assert ctx.kwargs()["content"] == "unknown type test"
+        assert ctx.kwargs()["content"].startswith("unknown category `test`")
 
     async def test__show_promoted(self, client, storage, make_context, mocker):
         Server = client.get_cog(server.Server.__name__)
@@ -83,13 +83,13 @@ class TestServerCog:
 
         assert not storage.discord.custom_promoted_users(1)
         await Server.show(ctx, "promoted")
-        assert ctx.kwargs()["content"] == "users that can edit settings: <@1234>"
+        assert ctx.kwargs()["content"] == "users that can edit settings:\n- default: server admins and managers"
 
         storage.discord.promote_users(1, 123, 12345)
         await Server.show(ctx, "promoted")
         assert all(
             tag in ctx.kwargs()["content"]
-            for tag in ("<@123>", "<@1234>", "<@12345>")
+            for tag in ("<@123>", "<@12345>")
         )
 
     async def test__show_settings(self, client, storage, make_context, mocker):
