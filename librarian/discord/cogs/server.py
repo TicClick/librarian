@@ -3,7 +3,6 @@ import logging
 
 import discord as discord_py
 from discord.ext import commands
-from librarian import discord
 
 from librarian.discord import formatters
 from librarian.discord.cogs import helpers
@@ -24,6 +23,7 @@ class Server(commands.Cog):
 
     @commands.command(name="promote")
     @helpers.is_promoted()
+    @commands.guild_only()
     async def promote_users(self, ctx: commands.Context):
         """
         allow users to change the bot's settings or promote others.
@@ -46,6 +46,7 @@ class Server(commands.Cog):
 
     @commands.command(name="demote")
     @helpers.is_promoted()
+    @commands.guild_only()
     async def demote_users(self, ctx: commands.Context):
         """
         disallow users to change the bot's settings or promote others.
@@ -69,6 +70,7 @@ class Server(commands.Cog):
         return await ctx.message.channel.send(content="incorrect format; mention users instead")
 
     @commands.command(name="show")
+    @commands.guild_only()
     async def show(self, ctx: commands.Context, *args):
         """
         print different things
@@ -105,6 +107,7 @@ class Server(commands.Cog):
     # the final docstring for this command is generated automatically
     @commands.command(name="set")
     @helpers.is_promoted()
+    @commands.guild_only()
     async def set(self, ctx: commands.Context, *args):
         """
         change translation-related settings
@@ -133,6 +136,7 @@ class Server(commands.Cog):
 
     @commands.command(name="reset")
     @helpers.is_promoted()
+    @commands.guild_only()
     async def reset(self, ctx: commands.Context):
         """
         IMMEDIATELY reset settings and promoted users for this channel,
@@ -148,6 +152,7 @@ class Server(commands.Cog):
 
     @commands.command(name="fetch")
     @helpers.is_promoted()
+    @commands.guild_only()
     async def fetch(self, ctx: commands.Context):
         """
         repost missing open pulls for current channel's language from GitHub
