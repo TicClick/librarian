@@ -1,5 +1,6 @@
 import argparse
 import logging
+import typing
 
 import arrow
 import discord
@@ -15,23 +16,33 @@ logger = logging.getLogger(__name__)
 
 
 class CountArgparser(argparse.ArgumentParser):
+    """
+    Argument parser for the Pulls cog. Acceptable arguments: --from, --to, --language
+    (each argument has a short form, like -l for --language).
+    Unlike the default argparse.ArgumentParser, raises `ValueError` instead of `SystemExit` on parsing error.
+    """
+
     def __init__(self):
         super().__init__()
         self.add_argument("-f", "--from", dest="from_", help="start date (inclusive)", required=True, type=arrow.get)
         self.add_argument("-t", "--to", dest="to", help="end date (exclusive)", required=True, type=arrow.get)
         self.add_argument("-l", "--lang", "--language", dest="language", help="language code")
 
-    def error(self, message):
+    def error(self, message: str):
         raise ValueError(message)
 
 
 class Pulls(commands.Cog):
+    """
+    The cog that includes a group of pull-related commands. See the individual methods and their descriptions.
+    """
+
     def __init__(self):
         super().__init__()
         self.parser = CountArgparser()
 
     @commands.command()
-    async def list(self, ctx: commands.Context, *args):
+    async def list(self, ctx: commands.Context, *args: typing.List[str]):
         """
         list pull requests merged within a time span
 

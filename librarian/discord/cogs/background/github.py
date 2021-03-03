@@ -1,9 +1,13 @@
 import asyncio
 import logging
+import typing
 
 import arrow
 import aiohttp.client_exceptions
-from discord.ext import tasks
+from discord.ext import (
+    commands,
+    tasks,
+)
 
 from librarian import storage
 from librarian.discord import formatters
@@ -15,21 +19,34 @@ logger = logging.getLogger(__name__)
 
 
 class FetchNewPulls(base.BackgroundCog):
+    """
+    The routine which is used by the bot to discover new pull requests posted on GitHub.
+
+    On the initial setup, the routine does regular polling; once GitHub is exhausted
+    and it has reached the most recent known pull, falls back to less regular update attempts.
+    The polling loop is considerate of GitHub API limits --
+    the intervals are picked to not hurt other parts of the system, even considering the 5,000 requests/hour limit.
+    """
+
     LAST_PULL = "last_pull"
     SHORT_INTERVAL = 3
     LONG_INTERVAL = 60
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.last_pull = None
+        self.last_pull: typing.Optional[int] = None
 
-    def fetched(self, pull_number):
+    def fetched(self, pull_number: int) -> bool:
         if self.last_pull is None:
             return False
         return pull_number <= self.last_pull
 
     @tasks.loop(seconds=SHORT_INTERVAL)
     async def loop(self):
+        """
+        Attempt to fetch the not-yet-submitted pull. See the class' docstring for a brief description.
+        """
+
         if self.last_pull is None:
             self.last_pull = self.storage.metadata.load_field(self.LAST_PULL)
             if self.last_pull is None:
@@ -56,9 +73,11 @@ class FetchNewPulls(base.BackgroundCog):
 
     @loop.after_loop
     async def shutdown(self):
+        """ Save the current progress to the database. """
         self.storage.metadata.save_field(self.LAST_PULL, self.last_pull)
 
     async def status(self):
+        """ Returns the state of GitHub API rate limits. """
         return dict(
             last_pull=self.last_pull,
             requests_left=self.github.ratelimit.left,
@@ -68,14 +87,39 @@ class FetchNewPulls(base.BackgroundCog):
 
 
 class MonitorPulls(base.BackgroundCog):
+    """
+    The routine used by the bot to fetch PR updates and distribute them to the subscribers (Discord channels).
+
+    Pull requests' status is cached in a local database. On every loop, all open pulls
+    are fetched and compared against these that are cached as open. The following three sets of PRs are then queried:
+    1. Pulls that are already closed, but recorded as open;
+    2. Pulls that are open, but the database doesn't have them yet;
+    3. Pulls that are open and known to the database, but have an update.
+
+    After everything is downloaded, every channel receives an update for its language-specific pulls.
+    Optionally, other actions are performed, such as pinning messages, notifying reviewers,
+    setting someone an assignee (requires the person to be the repository team's member).
+    """
+
     INTERVAL = 60
     CUTOFF_PULL_NUMBER = 4450
 
-    def __init__(self, bot, *args, **kwargs):
+    def __init__(self, bot: commands.Bot, *args, **kwargs):
         super().__init__(bot, *args, **kwargs)
         self.assignee_login = bot.assignee_login
 
-    async def update_pull_status(self, pull, channel_id, message_model):
+    async def update_pull_status(
+        self, pull: storage.models.pull.Pull, channel_id: int, message_model: typing.Optional[storage.DiscordMessage]
+    ) -> None:
+        """
+        Post a status update for a pull in a given channel, optionally pinning it and highlighting the reviewers.
+        If `message_model` is not supplied, post a new message.
+
+        :param pull: the pull model used to craft a message
+        :param channel_id: identifier of a Discord channel to make a post in
+        :param message_model: an already existing message model with id, if available
+        """
+
         if pull.number <= self.CUTOFF_PULL_NUMBER:
             return None
 
@@ -104,7 +148,14 @@ class MonitorPulls(base.BackgroundCog):
             return None
         return storage.DiscordMessage(id=message.id, channel_id=channel_id, pull_number=pull.number)
 
-    async def add_assignee(self, pulls):
+    async def add_assignee(self, pulls: typing.Iterable[storage.models.pull.Pull]) -> None:
+        """
+        Add a person as assignee (requires both the person adding and the person to-be-added
+        to be the repository team's members).
+        """
+
+        # FIXME: this doesn't work with channel settings yet, but should.
+
         if not pulls or not self.assignee_login:
             return
 
@@ -124,7 +175,12 @@ class MonitorPulls(base.BackgroundCog):
                 if isinstance(result, Exception):
                     logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
 
-    async def fetch_pulls(self, numbers):
+    async def fetch_pulls(self, numbers: typing.List[int]) -> typing.List[dict]:
+        """
+        Fetch full data for a lot of pulls asynchronously in parallel.
+        :param numbers: a list of pull numbers to fetch.
+        """
+
         async with self.github.make_session() as aio_session:
             tasks = [
                 asyncio.create_task(self.github.get_single_pull(number, aio_session))
@@ -141,7 +197,11 @@ class MonitorPulls(base.BackgroundCog):
         return ok
 
     @tasks.loop(seconds=INTERVAL)
-    async def loop(self):
+    async def loop(self) -> None:
+        """
+        Sync the bot's state with GitHub. See the class' docstring for a brief description.
+        """
+
         try:
             live = {_["number"]: _ for _ in await self.github.pulls()}
             live_numbers = set(live.keys())
@@ -175,7 +235,11 @@ class MonitorPulls(base.BackgroundCog):
             saved = self.storage.pulls.save_many_from_payload(ok, s=s)
             await self.sort_for_updates(saved)
 
-    async def sort_for_updates(self, pulls):
+    async def sort_for_updates(self, pulls: typing.List[storage.models.pull.Pull]) -> None:
+        """
+        Asynchronously post update messages in channels that have subscribed to certain languages, and save their ids.
+        """
+
         tasks, items = [], []
         for pull in pulls:
             for item in self.bot.settings.channels_by_language.values():
@@ -201,5 +265,6 @@ class MonitorPulls(base.BackgroundCog):
 
         self.storage.discord.save_messages(*new_messages)
 
-    async def status(self):
+    async def status(self) -> dict:
+        # FIXME: make something useful here
         return {}
