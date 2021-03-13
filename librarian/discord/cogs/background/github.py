@@ -175,7 +175,7 @@ class MonitorPulls(base.BackgroundCog):
                 if isinstance(result, Exception):
                     logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
 
-    async def fetch_pulls(self, numbers: typing.List[int]) -> typing.List[dict]:
+    async def fetch_pulls(self, numbers: typing.Set[int]) -> typing.List[dict]:
         """
         Fetch full data for a lot of pulls asynchronously in parallel.
         :param numbers: a list of pull numbers to fetch.
@@ -231,6 +231,7 @@ class MonitorPulls(base.BackgroundCog):
         )
 
         ok = await self.fetch_pulls(already_closed | new_open | updated)
+        logger.info("%s: fetched %d pull(s) in total", self.name, len(ok))
         with self.storage.session_scope() as s:
             saved = self.storage.pulls.save_many_from_payload(ok, s=s)
             await self.sort_for_updates(saved)

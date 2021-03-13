@@ -166,7 +166,7 @@ class PullHelper(base.Helper):
     def save_many_from_payload(self, pulls_list: typing.List[dict], s: orm.Session) -> typing.List[Pull]:
         """
         Save and update multiple pulls from a list of JSON payloads
-        and return pulls that existed prior to that.
+        and return ORM objects.
 
         :param pulls: a list of pulls in form of JSON data.
         :param s: database session (may be omitted for one-off calls)
@@ -178,14 +178,15 @@ class PullHelper(base.Helper):
         for pull in existing:
             pull.update(pulls[pull.number])
 
-        s.add_all(existing)
-        s.add_all([
+        new = [
             Pull(p)
             for num, p in pulls.items() if
             num not in set(_.number for _ in existing)
-        ])
+        ]
+        s.add_all(existing)
+        s.add_all(new)
 
-        return existing
+        return sorted(existing + new, key=lambda p: p.number)
 
     @utils.optional_session
     def by_number(self, pull_number: int, s: orm.Session) -> typing.Optional[Pull]:
