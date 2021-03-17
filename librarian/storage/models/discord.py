@@ -85,7 +85,7 @@ class DiscordHelper(base.Helper):
 
     @utils.optional_session
     def delete_message(self, message_id, channel_id, s):
-        s.query(DiscordMessage).fiilter(
+        s.query(DiscordMessage).filter(
             DiscordMessage.id == message_id,
             DiscordMessage.channel_id == channel_id,
         ).delete()
