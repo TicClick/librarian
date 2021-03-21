@@ -8,6 +8,7 @@ from discord.ext import (
     commands,
     tasks,
 )
+from sqlalchemy import exc as sql_exc
 
 from librarian import storage
 from librarian.discord import formatters
@@ -57,7 +58,10 @@ class FetchNewPulls(base.BackgroundCog):
             pull_data = await self.github.get_single_pull(self.last_pull)
             if pull_data is not None:
                 logger.info("%s: fetched pull #%s", self.name, self.last_pull)
-                self.storage.pulls.save_from_payload(pull_data, insert=True)
+                try:
+                    self.storage.pulls.save_from_payload(pull_data, insert=True)
+                except sql_exc.IntegrityError:  # fetched by MonitorPulls
+                    pass
                 self.last_pull += 1
 
             elif await self.github.get_single_issue(self.last_pull) is not None:
