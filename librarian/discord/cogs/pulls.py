@@ -42,7 +42,7 @@ class Pulls(commands.Cog):
         self.parser = CountArgparser()
 
     @commands.command()
-    async def list(self, ctx: commands.Context, *args: typing.List[str]):
+    async def list(self, ctx: commands.Context, *args: tuple):
         """
         list pull requests merged within a time span
 
