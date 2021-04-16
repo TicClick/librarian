@@ -22,6 +22,14 @@ class TestDiscordMessages:
         restored = storage.discord.messages_by_pull_numbers(*(_["number"] for _ in existing_pulls))
         assert len(restored) == n
 
+    def test__delete_message(self, storage, existing_pulls):
+        storage.discord.save_messages(
+            stg.DiscordMessage(id=123, channel_id=456, pull_number=789)
+        )
+        assert storage.discord.messages_by_pull_numbers(789)
+        storage.discord.delete_message(123, 456)
+        assert not storage.discord.messages_by_pull_numbers(789)
+
 
 class TestDiscordUsers:
     def test__promote_one(self, storage):

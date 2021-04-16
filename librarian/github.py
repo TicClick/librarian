@@ -165,7 +165,7 @@ class GitHub:
         except aiohttp.client_exceptions.ClientResponseError as exc:
             if exc.status == http.HTTPStatus.NOT_FOUND:
                 return None
-            raise
+            raise exc
 
     async def add_assignee(
         self, issue_id: int, assignee: str, session: aiohttp.ClientSession = None
@@ -190,7 +190,7 @@ class GitHub:
         except aiohttp.client_exceptions.ClientResponseError as exc:
             if exc.status == http.HTTPStatus.NOT_FOUND:
                 return None
-            raise
+            raise exc
 
     async def pulls(
         self, state: str = "open", direction: str = "asc", sort: str = "created", session: aiohttp.ClientSession = None
