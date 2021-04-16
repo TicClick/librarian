@@ -18,10 +18,13 @@ depends_on = None
 
 
 def upgrade():
-    op.drop_column("pulls", "added_files")
-    op.drop_column("pulls", "deleted_files")
+    # SQLite workarounds for ALTER TABLE: https://alembic.sqlalchemy.org/en/latest/batch.html
+    with op.batch_alter_table("pulls") as batch_op:
+        batch_op.drop_column("added_files")
+        batch_op.drop_column("deleted_files")
 
 
 def downgrade():
-    op.add_column("pulls", sql.Column("added_files", sql.Integer, nullable=False, default=0))
-    op.add_column("pulls", sql.Column("deleted_files", sql.Integer, nullable=False, default=0))
+    with op.batch_alter_table("pulls") as batch_op:
+        batch_op.add_column(sql.Column("added_files", sql.Integer, nullable=False, default=0))
+        batch_op.add_column(sql.Column("deleted_files", sql.Integer, nullable=False, default=0))
