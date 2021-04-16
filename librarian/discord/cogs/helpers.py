@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord.ext.commands import cooldowns
 
 
 def is_owner() -> commands.Command:
@@ -35,3 +36,11 @@ def is_promoted() -> commands.Command:
         )
 
     return commands.check(predicate)
+
+
+def short_cooldown(type: cooldowns.BucketType = cooldowns.BucketType.channel) -> commands.Command:
+    """
+    Rate-limiting decorator ("once in 30s"). Limitations are channel-based by default (controlled by `type`).
+    """
+
+    return commands.cooldown(rate=1, per=30, type=type)

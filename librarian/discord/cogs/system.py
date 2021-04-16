@@ -72,3 +72,34 @@ class System(commands.Cog):
         """
 
         await self.run_and_reply(ctx.message, ["/bin/df", "-Ph", "/"])
+
+    @commands.command(name="version")
+    @helpers.short_cooldown()
+    async def show_version(self, ctx: commands.Context, *args):
+        """
+        show Librarian's version
+
+        usage:
+            .version
+        """
+
+        rc, head = await self.run_command(["git", "log", "-1", "--pretty=format:%H %cs"])
+        if rc == 0:
+            commit, date = head.split()
+            rc, tags = await self.run_command(["git", "tag", "--points-at", commit])
+            if rc == 0:
+                tag = tags.splitlines()[0] or None
+            else:
+                tag = None
+        else:
+            commit, date = None, None
+
+        if commit is None:
+            return await ctx.message.channel.send(content="unknown version (failed to run `git log`)")
+
+        return await ctx.message.channel.send(
+            content=formatters.codewrap([
+                f"tag: {tag}",
+                f"last commit: {commit} ({date})"
+            ])
+        )
