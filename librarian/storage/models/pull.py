@@ -41,10 +41,6 @@ class Pull(base.Base):
     commits = sql.Column(sql.Integer, nullable=False)
     user_login = sql.Column(sql.String(USER_LOGIN_LEN), nullable=False)
     user_id = sql.Column(sql.Integer, nullable=False)
-
-    # TODO: these fields were designed for a more rich representation and are probably not needed anymore
-    added_files = sql.Column(sql.Integer, nullable=False, default=0)
-    deleted_files = sql.Column(sql.Integer, nullable=False, default=0)
     changed_files = sql.Column(sql.Integer, nullable=False, default=0)
 
     assignees_logins = sql.Column(sql.JSON, default=[])
