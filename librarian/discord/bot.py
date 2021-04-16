@@ -4,6 +4,7 @@ import logging
 import discord
 import discord.errors
 from discord.ext import commands
+import discord.ext.commands.errors as commands_errors
 
 from librarian.discord import errors
 from librarian.discord.cogs import (
@@ -34,6 +35,15 @@ class Client(commands.Bot):
         self.settings = registry.Registry(self.storage.discord)
 
         super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)
+
+    async def on_command_error(self, ctx, exception):
+        if isinstance(exception, commands_errors.CommandNotFound):
+            return await ctx.message.channel.send(
+                content="no such command `{}` -- try `{}help` instead".format(
+                    ctx.invoked_with, self.COMMAND_PREFIX
+                )
+            )
+        return await super().on_command_error(ctx, exception)
 
     def setup(self):
         self.add_cog(pulls.Pulls())
