@@ -84,9 +84,10 @@ class Pull(base.Base):
             if self.id is not None and key == self.ID_KEY:
                 continue
 
-            extracted[key] = payload.get(key)
-            if key in self.DATETIME_KEYS:
-                extracted[key] = arrow.get(extracted[key]).datetime
+            val = payload.get(key)
+            if val is not None and key in self.DATETIME_KEYS:
+                val = arrow.get(val).datetime
+            extracted[key] = val
 
         for key in self.NESTED_KEYS:
             extracted[key] = self.read_nested(payload, key)

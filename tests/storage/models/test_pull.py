@@ -18,11 +18,15 @@ class TestPulls:
         for k in set(pull.DIRECT_KEYS) - blacklist:
             v = getattr(pull, k)
             original_v = payload[k]
-            if k in pull.DATETIME_KEYS:
-                v = arrow.get(v).floor("second")
-                original_v = arrow.get(original_v).floor("second")
 
-            assert v == original_v
+            if v is None:
+                assert original_v is None
+            else:
+                if k in pull.DATETIME_KEYS:
+                    v = arrow.get(v).floor("second")
+                    original_v = arrow.get(original_v).floor("second")
+
+                assert v == original_v
 
         for k in set(pull.NESTED_KEYS) - blacklist:
             assert getattr(pull, k) == pull.read_nested(payload, k)
