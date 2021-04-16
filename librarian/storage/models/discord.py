@@ -91,6 +91,12 @@ class DiscordHelper(base.Helper):
         ).delete()
 
     @utils.optional_session
+    def delete_channel_messages(self, channel_id, s) -> int:
+        return s.query(DiscordMessage).filter(
+            DiscordMessage.channel_id == channel_id,
+        ).delete()
+
+    @utils.optional_session
     def messages_by_pull_numbers(self, *pull_numbers: typing.List[int], s: orm.Session = None):
         """ Return all known messages that are tied to the specified pulls. """
         return s.query(DiscordMessage).filter(DiscordMessage.pull_number.in_(pull_numbers)).all()

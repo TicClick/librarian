@@ -30,6 +30,22 @@ class TestDiscordMessages:
         storage.discord.delete_message(123, 456)
         assert not storage.discord.messages_by_pull_numbers(789)
 
+    def test__delete_channel_messages(self, storage, existing_pulls):
+        assert storage.discord.delete_channel_messages(123) == 0
+        storage.discord.save_messages(*(
+            stg.DiscordMessage(
+                id=i,
+                channel_id=123,
+                pull_number=1
+            )
+            for i in range(10)
+        ))
+        storage.discord.save_messages(stg.DiscordMessage(id=15, channel_id=124, pull_number=1))
+
+        assert len(storage.discord.messages_by_pull_numbers(1)) == 11
+        assert storage.discord.delete_channel_messages(123) == 10
+        assert len(storage.discord.messages_by_pull_numbers(1)) == 1
+
 
 class TestDiscordUsers:
     def test__promote_one(self, storage):

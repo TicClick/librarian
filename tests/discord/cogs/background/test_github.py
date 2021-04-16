@@ -265,8 +265,10 @@ class TestSortForUpdates:
         response = collections.namedtuple("Response", "status reason")(404, "testing stuff")
         client.fetch_channel = mocker.AsyncMock(side_effect=discord_errors.NotFound(response, "error"))
         client.settings.reset = mocker.AsyncMock()
+        client.storage.discord.delete_channel_messages = mocker.Mock()
         await monitor.sort_for_updates([pp])
 
         client.settings.reset.assert_called()
+        client.storage.discord.delete_channel_messages.assert_called()
         args, _ = client.settings.reset.call_args
         assert args == (123,)

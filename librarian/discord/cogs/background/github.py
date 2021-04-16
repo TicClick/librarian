@@ -274,6 +274,7 @@ class MonitorPulls(base.BackgroundCog):
     async def handle_update_exception(self, exc: errors.LibrarianException, item: typing.Tuple[int, int]):
         if isinstance(exc, errors.NoDiscordChannel):
             await self.bot.settings.reset(exc.channel_id)
+            self.storage.discord.delete_channel_messages(exc.channel_id)
 
     async def status(self) -> dict:
         # FIXME: make something useful here
