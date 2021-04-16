@@ -1,6 +1,5 @@
 import argparse
 import logging
-import typing
 
 import arrow
 import discord
@@ -42,7 +41,8 @@ class Pulls(commands.Cog):
         self.parser = CountArgparser()
 
     @commands.command()
-    async def list(self, ctx: commands.Context, *args: tuple):
+    # *args is left without a type hint to prevent discord.py from odd conversion attempts like '-f' -> ['-', 'f']
+    async def list(self, ctx: commands.Context, *args):
         """
         list pull requests merged within a time span
 
