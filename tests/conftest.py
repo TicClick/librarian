@@ -202,3 +202,17 @@ def make_context(client, mocker):
 @pytest.fixture
 def assignee_login():
     return "assignee-login"
+
+
+@pytest.fixture(autouse=True)
+def patch_logging(mocker):
+    class WrongLoggingAPIUsedException(Exception):
+        pass
+
+    for method in ("debug", "info", "warning", "error", "critical", "log"):
+        mocker.patch(
+            f"logging.{method}",
+            side_effect=WrongLoggingAPIUsedException(
+                "Attempt to use logging.* methods detected -- check the stacktrace"
+            )
+        )

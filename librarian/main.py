@@ -18,7 +18,6 @@ PADDING_CHAR = "-"
 
 
 def configure_client(config):
-    # TODO: ban logging.{debug,info,warning,error,critical} which I sometimes call by mistake
     loggers = logging_utils.all_loggers()
     loggers["librarian.main"] = logger  # otherwise an old copy with default settings is kept
     logging_utils.setup_logging(config["runtime"]["dir"], config["logging"], loggers.values())
