@@ -11,7 +11,7 @@ from discord.ext import (
 from sqlalchemy import exc as sql_exc
 
 from librarian import storage
-from librarian.discord import formatters
+from librarian.discord import formatters, errors
 from librarian.discord.settings import custom
 from librarian.discord.cogs.background import base
 
@@ -265,10 +265,15 @@ class MonitorPulls(base.BackgroundCog):
                     "%s: failed to post an update for pull #%d in channel #%d: %s",
                     self.name, item[0], item[1], result
                 )
+                await self.handle_update_exception(result, item)
             elif result is not None:
                 new_messages.append(result)
 
         self.storage.discord.save_messages(*new_messages)
+
+    async def handle_update_exception(self, exc: errors.LibrarianException, item: typing.Tuple[int, int]):
+        if isinstance(exc, errors.NoDiscordChannel):
+            await self.bot.settings.reset(exc.channel_id)
 
     async def status(self) -> dict:
         # FIXME: make something useful here

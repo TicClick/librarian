@@ -2,8 +2,10 @@ import asyncio
 import logging
 
 import discord
+import discord.errors
 from discord.ext import commands
 
+from librarian.discord import errors
 from librarian.discord.cogs import (
     pulls,
     server,
@@ -53,9 +55,12 @@ class Client(commands.Bot):
         await self.start_routines()
 
     async def post_or_update(self, channel_id, message_id=None, content=None, embed=None):
-        channel = self.get_channel(channel_id)
-        if channel is None:
-            channel = await self.fetch_channel(channel_id)
+        try:
+            channel = self.get_channel(channel_id)
+            if channel is None:
+                channel = await self.fetch_channel(channel_id)
+        except discord.errors.NotFound:
+            raise errors.NoDiscordChannel(channel_id)
 
         if message_id is None:
             message = await channel.send(content=content, embed=embed)  # type: discord.Message

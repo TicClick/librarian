@@ -1,6 +1,8 @@
+import collections
 import random
 
 import discord as discord_py
+import discord.errors as discord_errors
 import pytest
 
 from librarian.storage.models import (
@@ -240,3 +242,31 @@ class TestSortForUpdates:
             assert done[0].number == expected[0].number
             assert done[1] == expected[1]
             assert done[2].id == expected[2].id
+
+    async def test__exception_handling_no_channel(
+        self, client, storage, existing_pulls, mocker, codes_by_titles
+    ):
+        monitor = github.MonitorPulls(client)
+        monitor.CUTOFF_PULL_NUMBER = 0
+
+        p = next(iter(
+            _
+            for _ in existing_pulls if
+            (
+                codes_by_titles[_["title"]] and
+                _["state"] == "open"
+            )
+        ))
+        language = custom.Language(codes_by_titles[p["title"]])
+        await client.settings.update(123, 1234, [language.name, language.code])
+        storage.pulls.save_from_payload(p)
+        pp = storage.pulls.by_number(p["number"])
+
+        response = collections.namedtuple("Response", "status reason")(404, "testing stuff")
+        client.fetch_channel = mocker.AsyncMock(side_effect=discord_errors.NotFound(response, "error"))
+        client.settings.reset = mocker.AsyncMock()
+        await monitor.sort_for_updates([pp])
+
+        client.settings.reset.assert_called()
+        args, _ = client.settings.reset.call_args
+        assert args == (123,)
