@@ -197,7 +197,10 @@ class MonitorPulls(base.BackgroundCog):
             if isinstance(result, Exception):
                 logger.error("%s: couldn't fetch pull #%s: %s", self.name, number, result)
             else:
-                ok.append(result)
+                if result is None:
+                    logger.error("%s: received None for a pull #%d during fetching", self.name, result)
+                else:
+                    ok.append(result)
         return ok
 
     @tasks.loop(seconds=INTERVAL)

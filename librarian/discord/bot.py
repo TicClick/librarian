@@ -36,14 +36,24 @@ class Client(commands.Bot):
 
         super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)
 
-    async def on_command_error(self, ctx, exception):
+    async def _on_command_error_inner(self, ctx, exception):
         if isinstance(exception, commands_errors.CommandNotFound):
             return await ctx.message.channel.send(
                 content="no such command `{}` -- try `{}help` instead".format(
                     ctx.invoked_with, self.COMMAND_PREFIX
                 )
             )
-        return await super().on_command_error(ctx, exception)
+        else:
+            return await super().on_command_error(ctx, exception)
+
+    async def on_command_error(self, ctx, exception):
+        try:
+            return await self._on_command_error_inner(ctx, exception)
+        except discord.errors.DiscordException as new_exc:
+            logger.info(
+                "Failed to notify %r in #%d about the error %r: %s",
+                ctx.message.author, ctx.message.channel.id, exception, new_exc
+            )
 
     def setup(self):
         self.add_cog(pulls.Pulls())
