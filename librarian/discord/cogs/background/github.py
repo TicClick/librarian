@@ -4,13 +4,11 @@ import typing
 
 import arrow
 import aiohttp.client_exceptions
-from discord.ext import (
-    commands,
-    tasks,
-)
+from discord.ext import tasks
 from sqlalchemy import exc as sql_exc
 
 from librarian import storage
+from librarian import types
 from librarian.discord import formatters, errors
 from librarian.discord.settings import custom
 from librarian.discord.cogs.background import base
@@ -116,7 +114,7 @@ class MonitorPulls(base.BackgroundCog):
 
     INTERVAL = 60
 
-    def __init__(self, bot: commands.Bot, *args, **kwargs):
+    def __init__(self, bot: types.Bot, *args, **kwargs):
         super().__init__(bot, *args, **kwargs)
         self.assignee_login = bot.assignee_login
 

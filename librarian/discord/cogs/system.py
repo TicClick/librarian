@@ -4,6 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
+from librarian import types
 from librarian.discord import formatters
 from librarian.discord.cogs import helpers
 from librarian.discord.cogs.background import base
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 class System(commands.Cog):
     @commands.command(name="status")
     @helpers.is_owner()
-    async def report_status(self, ctx: commands.Context):
+    async def report_status(self, ctx: types.Context):
         """
         system information. probably only interesting to the bot owner
 
@@ -63,7 +64,7 @@ class System(commands.Cog):
 
     @commands.command(name="disk")
     @helpers.is_owner()
-    async def show_disk_status(self, ctx: commands.Context, *args):
+    async def show_disk_status(self, ctx: types.Context, *args):
         """
         amount of space consumed/free on a machine that hosts Librarian
 
@@ -75,7 +76,7 @@ class System(commands.Cog):
 
     @commands.command(name="version")
     @helpers.short_cooldown()
-    async def show_version(self, ctx: commands.Context, *args):
+    async def show_version(self, ctx: types.Context, *args):
         """
         show Librarian's version
 

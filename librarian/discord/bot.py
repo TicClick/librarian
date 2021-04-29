@@ -1,10 +1,15 @@
 import asyncio
 import logging
+import typing
 
 import discord
 import discord.errors
 from discord.ext import commands
 import discord.ext.commands.errors as commands_errors
+
+from librarian import types
+from librarian import github as gh
+from librarian import storage as stg
 
 from librarian.discord import errors
 from librarian.discord.cogs import (
@@ -26,7 +31,8 @@ class Client(commands.Bot):
     KILL_TIMEOUT = 10
 
     def __init__(
-        self, *args, github=None, storage=None, assignee_login=None,
+        self, *args, github: gh.GitHub = None, storage: stg.Storage = None,
+        assignee_login: typing.Optional[str] = None,
         **kwargs
     ):
         self.github = github
@@ -36,7 +42,7 @@ class Client(commands.Bot):
 
         super().__init__(*args, command_prefix=self.COMMAND_PREFIX, **kwargs)
 
-    async def _on_command_error_inner(self, ctx, exception):
+    async def _on_command_error_inner(self, ctx: types.Context, exception: Exception):
         if isinstance(exception, commands_errors.CommandNotFound):
             return await ctx.message.channel.send(
                 content="no such command `{}` -- try `{}help` instead".format(

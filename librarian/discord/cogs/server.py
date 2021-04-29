@@ -4,6 +4,7 @@ import logging
 import discord as discord_py
 from discord.ext import commands
 
+from librarian import types
 from librarian.discord import formatters
 from librarian.discord.cogs import helpers
 from librarian.discord.settings import custom, registry
@@ -24,7 +25,7 @@ class Server(commands.Cog):
     @commands.command(name="promote")
     @helpers.is_promoted()
     @commands.guild_only()
-    async def promote_users(self, ctx: commands.Context):
+    async def promote_users(self, ctx: types.Context):
         """
         allow users to change the bot's settings or promote others.
         always available to the server's owner and managers
@@ -47,7 +48,7 @@ class Server(commands.Cog):
     @commands.command(name="demote")
     @helpers.is_promoted()
     @commands.guild_only()
-    async def demote_users(self, ctx: commands.Context):
+    async def demote_users(self, ctx: types.Context):
         """
         disallow users to change the bot's settings or promote others.
         the server's owner and managers are always promoted
@@ -71,7 +72,7 @@ class Server(commands.Cog):
 
     @commands.command(name="show")
     @commands.guild_only()
-    async def show(self, ctx: commands.Context, *args):
+    async def show(self, ctx: types.Context, *args):
         """
         print different things
 
@@ -108,7 +109,7 @@ class Server(commands.Cog):
     @commands.command(name="set")
     @helpers.is_promoted()
     @commands.guild_only()
-    async def set(self, ctx: commands.Context, *args):
+    async def set(self, ctx: types.Context, *args):
         """
         change translation-related settings
 
@@ -137,7 +138,7 @@ class Server(commands.Cog):
     @commands.command(name="reset")
     @helpers.is_promoted()
     @commands.guild_only()
-    async def reset(self, ctx: commands.Context):
+    async def reset(self, ctx: types.Context):
         """
         IMMEDIATELY reset settings and promoted users for this channel,
         effectively disabling all pings and GitHub-related subscriptions
@@ -153,7 +154,7 @@ class Server(commands.Cog):
     @commands.command(name="fetch")
     @helpers.is_promoted()
     @commands.guild_only()
-    async def fetch(self, ctx: commands.Context):
+    async def fetch(self, ctx: types.Context):
         """
         repost missing open pulls for current channel's language from GitHub
 

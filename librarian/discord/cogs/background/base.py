@@ -2,6 +2,8 @@ import logging
 
 from discord.ext import tasks, commands
 
+from librarian import types
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +20,7 @@ class BackgroundCog(commands.Cog):
     it blocks other routines, so make sure to switch the context regularly.
     """
 
-    def __init__(self, bot: commands.Bot, *args, **kwargs):
+    def __init__(self, bot: types.Bot, *args, **kwargs):
         self.bot = bot
         self.github = bot.github
         self.storage = bot.storage

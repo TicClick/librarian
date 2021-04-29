@@ -5,10 +5,9 @@ import arrow
 import discord
 from discord.ext import commands
 
-from librarian.discord import (
-    formatters,
-    utils,
-)
+from librarian import types
+from librarian.discord import formatters
+from librarian.discord import utils
 from librarian.discord.settings import custom
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ class Pulls(commands.Cog):
 
     @commands.command()
     # *args is left without a type hint to prevent discord.py from odd conversion attempts like '-f' -> ['-', 'f']
-    async def list(self, ctx: commands.Context, *args):
+    async def list(self, ctx: types.Context, *args):
         """
         list pull requests merged within a time span
 
