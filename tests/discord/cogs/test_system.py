@@ -94,6 +94,6 @@ class TestSystemCog:
             await system_cog.show_version(ctx)
 
             content = ctx.kwargs()["content"]
-            assert content == "```\ntag: {}\nlast commit: 1234abcd (2021-04-16)\n```".format(
+            assert content == "```\ntag: {} (commit 1234abcd from 2021-04-16)\n```".format(
                 expected_tag
             )
