@@ -37,14 +37,6 @@ class TestUpdatePullStatus:
         if len(results) < len(sampled):
             assert github.logger.error.called
 
-    async def test__update_pull_status__before_cutoff(self, client, existing_pulls, mocker):
-        monitor = github.MonitorPulls(client)
-        monitor.CUTOFF_PULL_NUMBER = max(_["number"] for _ in existing_pulls) + 100
-        monitor.bot.post_update = mocker.Mock()
-
-        await monitor.update_pull_status(pull.Pull(existing_pulls[0]), 1, None)
-        assert not monitor.bot.post_update.called
-
     @pytest.mark.parametrize("pin_message", [True, False])
     @pytest.mark.parametrize("reviewer_specified", [True, False])
     @pytest.mark.parametrize("pull_state", [formatters.PullState.OPEN.name, formatters.PullState.CLOSED.name])
@@ -55,7 +47,6 @@ class TestUpdatePullStatus:
         reviewer_specified, pin_message, is_new_message, is_message_pinned, pull_state
     ):
         monitor = github.MonitorPulls(client)
-        monitor.CUTOFF_PULL_NUMBER = 0
         p = pull.Pull(next(iter(_ for _ in existing_pulls if _["state"] == pull_state)))
 
         channel_id = 123
@@ -146,7 +137,6 @@ class TestSortForUpdates:
         save_pull, pull_state, raise_exc=False
     ):
         monitor = github.MonitorPulls(client)
-        monitor.CUTOFF_PULL_NUMBER = 0
 
         def side_effect(channel_id, message_id, embed, content):
             if raise_exc:
@@ -247,7 +237,6 @@ class TestSortForUpdates:
         self, client, storage, existing_pulls, mocker, codes_by_titles
     ):
         monitor = github.MonitorPulls(client)
-        monitor.CUTOFF_PULL_NUMBER = 0
 
         p = next(iter(
             _

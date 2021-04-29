@@ -37,11 +37,6 @@ class FetchNewPulls(base.BackgroundCog):
         super().__init__(*args, **kwargs)
         self.last_pull: typing.Optional[int] = None
 
-    def fetched(self, pull_number: int) -> bool:
-        if self.last_pull is None:
-            return False
-        return pull_number <= self.last_pull
-
     @tasks.loop(seconds=SHORT_INTERVAL)
     async def loop(self):
         """
@@ -82,8 +77,9 @@ class FetchNewPulls(base.BackgroundCog):
                 self.last_pull += 1
 
             else:
-                logger.info("%s: no unknown pulls? setting interval to %d from now on", self.name, self.LONG_INTERVAL)
+                logger.info("%s: no unknown pulls? going into slow mode", self.name)
                 self.loop.change_interval(seconds=self.LONG_INTERVAL)
+                await asyncio.sleep(self.LONG_INTERVAL - self.SHORT_INTERVAL)
 
         except aiohttp.client_exceptions.ClientError as exc:
             logger.error("%s: failed to fetch pull #%s: %s", self.name, self.last_pull, exc)
@@ -119,7 +115,6 @@ class MonitorPulls(base.BackgroundCog):
     """
 
     INTERVAL = 60
-    CUTOFF_PULL_NUMBER = 4450
 
     def __init__(self, bot: commands.Bot, *args, **kwargs):
         super().__init__(bot, *args, **kwargs)
@@ -136,9 +131,6 @@ class MonitorPulls(base.BackgroundCog):
         :param channel_id: identifier of a Discord channel to make a post in
         :param message_model: an already existing message model with id, if available
         """
-
-        if pull.number <= self.CUTOFF_PULL_NUMBER:
-            return None
 
         first_time = message_model is None
         channel_settings = self.bot.settings.get(channel_id)
