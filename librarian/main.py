@@ -67,7 +67,7 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    cfg = config.load(args.config)
+    cfg = config.load(args.config, verbose=True)
     client, token = configure_client(cfg)
     run_client(client, token)
 

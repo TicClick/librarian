@@ -1,9 +1,11 @@
 import itertools
 import json
+import os
 import random
 
 from aiohttp import web
 import pytest
+import yaml
 
 import librarian.discord
 import librarian.github
@@ -216,3 +218,35 @@ def patch_logging(mocker):
                 "Attempt to use logging.* methods detected -- check the stacktrace"
             )
         )
+
+
+@pytest.fixture
+def mocked_config_path(tmpdir):
+    fake_librarian_config = {
+        "runtime": {
+            "dir": os.path.join(tmpdir, "runtime")
+        },
+        "storage": {
+            "path": "{runtime}/osuwiki.db"
+        },
+        "logging": {
+            "file": "{runtime}/librarian.log"
+        }
+    }
+
+    fake_config_path = os.path.join(tmpdir, "config.yaml")
+    with open(fake_config_path, "w") as fd:
+        yaml.dump(fake_librarian_config, fd)
+
+    return fake_config_path
+
+
+@pytest.fixture
+def alembic_config(monkeypatch, mocked_config_path):
+    monkeypatch.setenv("LIBRARIAN_CONFIG", mocked_config_path)  # taken from env.py (put into env.py by me myself)
+    return {
+        "script_location": os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "alembic"
+        )
+    }

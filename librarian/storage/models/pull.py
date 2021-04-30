@@ -41,7 +41,7 @@ class Pull(base.Base):
     commits = sql.Column(sql.Integer, nullable=False)
     user_login = sql.Column(sql.String(USER_LOGIN_LEN), nullable=False)
     user_id = sql.Column(sql.Integer, nullable=False)
-    changed_files = sql.Column(sql.Integer, nullable=False, default=0)
+    changed_files = sql.Column(sql.Integer, default=0)
 
     assignees_logins = sql.Column(sql.JSON, default=[])
 
