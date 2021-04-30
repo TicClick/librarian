@@ -45,9 +45,9 @@ class Pull(Base):
     user_login = sql.Column(sql.String(USER_LOGIN_LEN), nullable=False)
     user_id = sql.Column(sql.Integer, nullable=False)
 
-    added_files = sql.Column(sql.Integer, nullable=False, default=0)
-    deleted_files = sql.Column(sql.Integer, nullable=False, default=0)
-    changed_files = sql.Column(sql.Integer, nullable=False, default=0)
+    added_files = sql.Column(sql.Integer, default=0)
+    deleted_files = sql.Column(sql.Integer, default=0)
+    changed_files = sql.Column(sql.Integer, default=0)
 
     discord_messages = orm.relationship(
         "DiscordMessage", order_by="DiscordMessage.id", back_populates="pull", lazy="joined"

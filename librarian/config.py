@@ -3,13 +3,14 @@ import os
 import yaml
 
 
-def load(config_path):
+def load(config_path, verbose=False):
     if not config_path:
         raise RuntimeError("Config path is empty")
     if config_path.endswith(".example.yaml"):
         raise RuntimeError("Can't use example config, see the note on its first line")
 
-    print(f"Loading config from {config_path}")
+    if verbose:
+        print(f"Loading config from {config_path}")
     with open(config_path, "r") as fd:
         config = yaml.safe_load(fd)
 

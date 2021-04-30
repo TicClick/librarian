@@ -26,5 +26,5 @@ def upgrade():
 
 def downgrade():
     with op.batch_alter_table("pulls") as batch_op:
-        batch_op.add_column(sql.Column("added_files", sql.Integer, nullable=False, default=0))
-        batch_op.add_column(sql.Column("deleted_files", sql.Integer, nullable=False, default=0))
+        batch_op.add_column(sql.Column("added_files", sql.Integer, default=0))
+        batch_op.add_column(sql.Column("deleted_files", sql.Integer, default=0))

@@ -4,6 +4,7 @@ discord.py==1.6.0
 IPython==7.21.0
 sqlalchemy==1.4.8
 alembic==1.5.4
+pytest-alembic==0.2.6
 arrow==1.0.3
 aiohttp==3.7.4
 flake8==3.8.4
