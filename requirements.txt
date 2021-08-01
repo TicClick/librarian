@@ -2,7 +2,7 @@ wheel==0.36.2
 PyYAML==5.4.1
 discord.py==1.6.0
 IPython==7.21.0
-sqlalchemy==1.4.8
+sqlalchemy==1.4.22
 alembic==1.5.8
 pytest-alembic==0.2.6
 arrow==1.0.3
