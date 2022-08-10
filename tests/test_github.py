@@ -98,17 +98,6 @@ class TestInteraction:
             for _ in data
         )
 
-    async def test__add_assignee(self, mock_github, gh_token, repo, existing_pulls):
-        api = librarian.github.GitHub(gh_token, repo)
-        pull = random.choice(existing_pulls)
-        new_person = "someone-from-osuwiki"
-
-        data = await api.add_assignee(pull["number"], new_person)
-        past_assignees = set(_["login"] for _ in pull["assignees"])
-        current_assignees = set(_["login"] for _ in data["assignees"])
-
-        assert current_assignees - past_assignees == {new_person}
-
     async def test__unknown_method(self, gh_token, repo):
         api = librarian.github.GitHub(gh_token, repo)
         with pytest.raises(ValueError):

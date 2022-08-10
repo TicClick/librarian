@@ -167,15 +167,6 @@ class GitHub:
                 return None
             raise exc
 
-    async def add_assignee(
-        self, issue_id: int, assignee: str, session: aiohttp.ClientSession = None
-    ) -> typing.Optional[dict]:
-        """ Add an assignee by their login to a pull or an issue. """
-
-        path = f"repos/{self.repo}/issues/{issue_id}/assignees"
-        data = {"assignees": [assignee]}
-        return await self.post(path, session=session, data=data)
-
     async def get_single_issue(
         self, issue_id: int, session: aiohttp.ClientSession = None
     ) -> typing.Optional[dict]:

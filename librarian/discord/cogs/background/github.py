@@ -155,33 +155,6 @@ class MonitorPulls(base.BackgroundCog):
             return None
         return storage.DiscordMessage(id=message.id, channel_id=channel_id, pull_number=pull.number)
 
-    async def add_assignee(self, pulls: typing.Iterable[storage.models.pull.Pull]) -> None:
-        """
-        Add a person as assignee (requires both the person adding and the person to-be-added
-        to be the repository team's members).
-        """
-
-        # FIXME: this doesn't work with channel settings yet, but should.
-
-        if not pulls or not self.assignee_login:
-            return
-
-        async with self.github.make_session() as aio_session:
-            tasks = []
-            for pull in pulls:
-                if self.assignee_login in pull.assignees_logins + [pull.user_login]:
-                    continue
-                future = self.github.add_assignee(pull.number, self.assignee_login, session=aio_session)
-                tasks.append(asyncio.create_task(future))
-            if tasks:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        if tasks:
-            for pull, result in zip(pulls, results):
-                # 404 also means that you have no write access to a repository
-                if isinstance(result, Exception):
-                    logger.error("%s: failed to add assignee for #%s: %s", self.name, pull.number, result)
-
     async def fetch_pulls(self, numbers: typing.Set[int]) -> typing.List[dict]:
         """
         Fetch full data for a lot of pulls asynchronously in parallel.

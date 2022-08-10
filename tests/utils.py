@@ -60,28 +60,16 @@ def user(login):
     return {"login": login, "id": make_id(login)}
 
 
-def with_assignees(pull, assignees):
-    pull = dict(pull)
-    assignees = set(it.chain(
-        (_["login"] for _ in pull.get("assignees", [])),
-        assignees
-    ))
-    pull["assignees"] = [user(assignee) for assignee in assignees]
-    return pull
-
-
 def make_response(status, data):
     async def response(request):
         return web.Response(status=status, text=json.dumps(data), content_type="application/json")
     return response
 
 
-def make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_token):
+def make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, gh_token):
     app = web.Application()
     for path, handler in get_routes.items():
         app.router.add_get(path, handler)
-    for path, handler in post_routes.items():
-        app.router.add_post(path, handler)
 
     api = loop.run_until_complete(
         aiohttp_client(

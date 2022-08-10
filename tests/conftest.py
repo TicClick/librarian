@@ -90,34 +90,13 @@ def unstable_get_routes(repo, existing_pulls):
 
 
 @pytest.fixture
-def post_routes(repo, existing_pulls):
-    result = {}
-
-    def make_handler(pull):
-        async def add_assignee(request: web.Request):
-            data = json.loads(await request.content.read())
-            reply = utils.as_issue(pull)
-            if data and data["assignees"]:
-                reply = utils.with_assignees(reply, data["assignees"])
-            return web.Response(status=201, text=json.dumps(reply), content_type="application/json")
-
-        return add_assignee
-
-    for pull in existing_pulls:
-        pull_path = "/repos/{}/issues/{}/assignees".format(repo, pull["number"])
-        result[pull_path] = make_handler(pull)
-
-    return result
+def mock_github(monkeypatch, aiohttp_client, loop, get_routes, gh_token):
+    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, gh_token)
 
 
 @pytest.fixture
-def mock_github(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_token):
-    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, get_routes, post_routes, gh_token)
-
-
-@pytest.fixture
-def mock_unstable_github(monkeypatch, aiohttp_client, loop, unstable_get_routes, post_routes, gh_token):
-    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, unstable_get_routes, post_routes, gh_token)
+def mock_unstable_github(monkeypatch, aiohttp_client, loop, unstable_get_routes, gh_token):
+    yield utils.make_github_instance(monkeypatch, aiohttp_client, loop, unstable_get_routes, gh_token)
 
 
 @pytest.fixture
