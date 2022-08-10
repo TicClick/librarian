@@ -40,7 +40,7 @@ class LanguageMeta(type):
         return mcs.__regex
 
     def match(mcs, line):
-        return mcs.title_regex.match(line)
+        return mcs.title_regex.match(line.strip())
 
     @property
     def random_highlight(mcs):

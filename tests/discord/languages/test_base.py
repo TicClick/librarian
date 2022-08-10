@@ -23,7 +23,7 @@ class TestLanguages:
 
         fresh = base.LanguageMeta.get("nonsensical-language")
         assert fresh.code == "nonsensical-language"
-        assert fresh.title_regex.match("[nonsensical-language] TEST")
+        assert fresh.match("[nonsensical-language] TEST")
         assert sorted(fresh.highlights) == sorted(base.LanguageMeta.highlights)
         assert base.LanguageMeta.get("nonsensical-language") is fresh  # second lookup doesn't create a new class
 
@@ -40,7 +40,7 @@ class TestLanguages:
             "[GOOD/NOT/bad] test me",
             "[not] looking like a match, but it is",
         ):
-            assert FakeLanguage.title_regex.match(title)
+            assert FakeLanguage.match(title)
 
         for poor_title in (
             "[EN] test",
@@ -48,4 +48,10 @@ class TestLanguages:
             "NOT a drill",
             "[NOTE]lock",
         ):
-            assert not FakeLanguage.title_regex.match(poor_title)
+            assert not FakeLanguage.match(poor_title)
+
+    def test__whitespace_prefix(self):
+        class FakeLanguage(base.Language):
+            code = "sigh"
+
+        assert FakeLanguage.match("   [SIGH] whitespace again")
