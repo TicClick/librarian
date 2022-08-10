@@ -2,6 +2,7 @@ import inspect
 import random
 
 import pytest
+from sqlalchemy import inspection
 
 import librarian.storage as stg
 from librarian.storage import base
@@ -11,8 +12,9 @@ class TestBasics:
     def test__init(self, storage):
         models = inspect.getmembers(stg, predicate=lambda cls: inspect.isclass(cls) and issubclass(cls, base.Base))
         assert models
+        inspector = inspection.inspect(storage.engine)
         for _, model in models:
-            assert storage.engine.has_table(model.__tablename__)
+            assert inspector.has_table(model.__tablename__)
 
     def test__no_commit(self, storage, existing_pulls, mocker):
         def faulty_commit():
