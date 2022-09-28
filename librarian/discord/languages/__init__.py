@@ -1,6 +1,6 @@
 from .base import LanguageMeta  # noqa
 from . import (
-    ru,
+    ru, special,
 )
 
-__all__ = ("ru",)
+__all__ = ("ru", "special",)

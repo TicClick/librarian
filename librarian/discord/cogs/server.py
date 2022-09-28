@@ -105,7 +105,7 @@ class Server(commands.Cog):
 
         return await ctx.message.channel.send(content=reply)
 
-    # the final docstring for this command is generated automatically
+    # the final docstring for this command is generated automatically -- see __init__()
     @commands.command(name="set")
     @helpers.is_promoted()
     @commands.guild_only()
