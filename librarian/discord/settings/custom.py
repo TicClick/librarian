@@ -16,13 +16,14 @@ class PinMessages(base.Bool):
 class Language(base.String):
     """
     pulls with this language code will be watched.
-    possible values: anything from https://osu.ppy.sh/wiki/en/Article_styling_criteria/Formatting#locales
+    possible values: anything from https://osu.ppy.sh/wiki/en/Article_styling_criteria/Formatting#locales, plus "all" and "none"
     """
 
     name = "language"
     __whitelisted = frozenset((
         "en", "ar", "be", "bg", "cs", "da", "de", "gr", "es", "fi", "fr", "hu", "id", "it", "ja", "ko", "nl", "no",
         "pl", "pt", "pt-br", "ro", "ru", "sk", "sv", "th", "tr", "uk", "vi", "zh", "zh-tw",
+        languages.special.UnspecifiedLanguage.code, languages.special.EveryLanguage.code,
     ))
 
     def __init__(self, *a, **kw):

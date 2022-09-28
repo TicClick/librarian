@@ -1,5 +1,7 @@
 import pytest
 
+from librarian.discord.languages import special
+
 from librarian.discord.settings import (
     base,
     custom
@@ -29,6 +31,11 @@ class TestCustomSettings:
             with pytest.raises(ValueError) as e:
                 custom.Language(val).match("[DOES NOT] compute")
             assert "non-existent language" in str(e)
+
+        for val in [special.EveryLanguage.code, special.UnspecifiedLanguage.code]:
+            instance = custom.Language(val)
+            assert instance.check() and instance.cast() == val.strip().lower()
+            assert len(instance.random_highlight) == 0
 
     def test__reviewer_role(self):
         for val in ["123", "<@&1234>", 12345678901234567890]:
