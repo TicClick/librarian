@@ -1,4 +1,4 @@
-wheel==0.37.1
+wheel==0.38.1
 PyYAML==6.0
 discord.py==1.7.3
 SQLAlchemy==1.4.40
