@@ -1,5 +1,8 @@
 import abc
-import distutils.util
+
+
+def str2bool(s: str) -> bool:
+    return s.lower().strip() in ("y", "yes", "t", "true", "on", "1")
 
 
 class BaseSetting(metaclass=abc.ABCMeta):
@@ -33,13 +36,13 @@ class Bool(BaseSetting):
             return True
 
         try:
-            distutils.util.strtobool(self.value)
+            str2bool(self.value)
             return True
         except (AttributeError, ValueError):
             return False
 
     def cast(self):
-        return self.value if isinstance(self.value, bool) else distutils.util.strtobool(self.value)
+        return self.value if isinstance(self.value, bool) else str2bool(self.value)
 
 
 class String(BaseSetting):
