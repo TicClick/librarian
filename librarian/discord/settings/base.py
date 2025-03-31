@@ -1,8 +1,13 @@
 import abc
 
 
-def str2bool(s: str) -> bool:
-    return s.lower().strip() in ("y", "yes", "t", "true", "on", "1")
+def str2bool(value: str) -> bool:
+    s = value.lower().strip()
+    if s in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    if s in ("n", "no", "f", "false", "off", "0"):
+        return False
+    raise ValueError(f"Invalid boolean-like value {value}")
 
 
 class BaseSetting(metaclass=abc.ABCMeta):
